@@ -1,5 +1,22 @@
-data/
-venv/
-*.pyc
-.DS_Store
 __pycache__/
+*.py[cod]
+.DS_Store
+.ipynb_checkpoints/
+
+# Virtual environments
+.venv/
+venv/
+
+# Data and generated artifacts
+data/**
+!data/**/
+!data/**/.gitkeep
+outputs/**
+!outputs/**/
+!outputs/**/.gitkeep
+
+# Model/checkpoint artifacts
+*.pt
+*.pth
+*.h5
+*.ckpt
