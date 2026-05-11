@@ -1,141 +1,191 @@
-# CS313 Final Project - Time-Series Deep Learning for Stock Markets
+# CS313 Final Project — Time-Series Deep Learning for Stock Markets
 
-This repository is my **in-progress** final project for **CS313 Deep Learning for Artificial Intelligence (Spring 2026)**.
+## Problem Statement
 
-The project focuses on building deep learning systems for:
-- stock price forecasting,
-- trading signal identification,
-- portfolio and risk management,
-- and (optional) industry-style deployment workflows.
+Stock markets are inherently volatile and driven by dozens of overlapping signals — price momentum, trading volume, macroeconomic sentiment, industry fundamentals, and more. Traditional rule-based approaches struggle to synthesise all of these dimensions simultaneously. This project applies machine learning and deep learning models to two real markets — the **Nasdaq** (US) and the **Vietnam Stock Exchange** — to facilitate quantitative trading decisions: forecasting future prices, identifying optimal entry/exit points, and constructing risk-adjusted portfolios.
 
-## Project Goal
+---
 
-Social and economic conditions change continuously.  
-This project applies time-series forecasting and predictive analytics to help answer practical investment questions:
-- What prices are likely to happen next?
-- When are potential buy/sell opportunities?
-- Which stocks should be selected or excluded in a portfolio?
-- How should allocation change for different risk profiles?
+## Tasks Overview
 
-## Scope and Required Tasks
+| Task | Subtask | Description | Weight |
+|------|---------|-------------|--------|
+| **Task 1** — Nasdaq price prediction | 1.1 | Multi-feature extension (OHLCV) | 5% |
+| | 1.2 | k-th day forecast | 5% |
+| | 1.3 | k consecutive days forecast | 5% |
+| **Task 2** — Vietnam price prediction | 2.1 | Multi-feature extension | 5% |
+| | 2.2 | k-th day forecast | 5% |
+| | 2.3 | k consecutive days forecast | 5% |
+| **Task 3** — Vietnam trading signals | 3.1 | Buying signal identification | 10% |
+| | 3.2 | Selling signal identification | 10% |
+| **Task 4** — Vietnam portfolio management | 4.1 | Portfolio composition | 10% |
+| | 4.2 | Risk management | 10% |
+| | 4.3 | Portfolio optimisation | 10% |
+| **Task 5** — Deployment (extra credit) | 5.1 | Model deployment (FastAPI) | 5% |
+| | 5.2 | Model as SaaS (Streamlit) | 5% |
+| | 5.3 | AI engineering workflow (Airflow + MongoDB) | 5% |
+| **Task 6** — Report & repository | 6.1–6.3 | Report, GitHub repo, README | 20% |
 
-The course project defines 6 tasks (Tasks 1-4 core, Task 5 extra credit, Task 6 report/repository quality).  
-My implementation plan follows that structure.
+---
 
-### Task 1 (15%) - Nasdaq Stock Price Prediction
-
-- Task 1.1: Multivariate input (Open, High, Low, Close, Adj Close, Volume)
-- Task 1.2: Predict the **k-th future day** (for example day 3, day 7)
-- Task 1.3: Predict **k consecutive future days** (multi-step horizon)
-
-### Task 2 (15%) - Vietnam Stock Price Prediction
-
-- Task 2.1: Multivariate input (Open, High, Low, Close, Volume)
-- Task 2.2: Predict the **k-th future day**
-- Task 2.3: Predict **k consecutive future days**
-- Evaluate whether extra Vietnam data (dividend history, industry analysis, financial ratios) improves performance
-
-### Task 3 (20%) - Trading Signal Identification (Vietnam Market)
-
-- Task 3.1: Buying signal model (score/probability)
-- Task 3.2: Selling signal model (score/probability)
-- Consider feature engineering (SMA, MACD, RSI, and related indicators)
-
-### Task 4 (30%) - Portfolio Construction and Risk Management (Vietnam Market)
-
-- Task 4.1: Select profitable companies and estimate return potential
-- Task 4.2: Build risk scoring model to exclude risky companies
-- Task 4.3: Combine return and risk outputs into portfolio allocation strategy
-- Compare allocations for risk-taking vs prudent investor profiles
-
-### Task 5 (15%, Extra Credit) - Industry Deployment
-
-- Task 5.1: Deploy model as API service (REST/gRPC or TensorFlow Serving)
-- Task 5.2: Build simple SaaS/web UI for predictions
-- Task 5.3: Design AI engineering workflow (ingestion, transformation, training/inference, storage)
-
-### Task 6 (20%) - Report and Repository Quality
-
-- 2000+ word report describing experiments, findings, and conclusions
-- Complete, reproducible GitHub repository
-- Clear README with setup and running instructions
-
-## Current Progress (Work in Progress)
-
-- [x] Initial exploratory data analysis
-- [x] Data loading/preprocessing/splitting modules in `src/data`
-- [x] Baseline and advanced deep learning experiments (LSTM/GRU variants) for stock prediction
-- [x] Initial Nasdaq and Vietnam notebooks
-- [ ] Full task-by-task ablation and justification across all required subtasks
-- [ ] Complete trading signal pipeline (Task 3) with robust evaluation
-- [ ] Complete portfolio/risk pipeline (Task 4) and strategy comparison
-- [ ] Optional deployment workflow (Task 5)
-- [ ] Final report and polished reproducibility checklist (Task 6)
-
-## Repository Structure
-
-- `src/data/` - data loading, preprocessing, and time-series splitting utilities
-- `src/models/`, `src/training/`, `src/evaluation/` - model and evaluation code
-- `notebooks/` - EDA, preprocessing, and training experiments
-- `notebooks/data/` - prepared datasets and intermediate files
-- `models/` - saved model artifacts
-- `report/` - report materials
-- `requirements.txt` - Python dependencies
-
-## Data Sources
-
-- **Nasdaq data**: historical OHLCV-style market data (including adjusted close where available)
-- **Vietnam data**: historical OHLCV data and optional supporting datasets (dividends, financial ratios, industry analysis)
-- Main collection libraries currently used in this repository:
-  - `yfinance`
-  - `vnstock`
-
-## Methodology Highlights
-
-- Deep learning is the core modeling approach (LSTM/GRU-based variants)
-- Strict chronological split for train/validation/test (no random shuffle)
-- Time-series-aware validation strategy (rolling/expanding window style when applicable)
-- Multi-horizon forecasting setup (single future day and multi-day horizons)
-- Performance tracked with regression metrics (for example MAE, MSE, RMSE), with extensions for signal and portfolio tasks
-
-## How to Run
-
-### 1) Setup environment
+## How to Set Up
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+git clone <repo-url>
+cd DL4AI-240166-project-1
+
+python3 -m venv venv
+source venv/bin/activate
+
 pip install -r requirements.txt
 ```
 
-### 2) Run notebooks (current main workflow)
+To run the notebooks:
 
 ```bash
 jupyter notebook
 ```
 
-Recommended order in `notebooks/`:
-1. `1-exploratory-data-analysis.ipynb`
-2. `2-data-preprocessing.ipynb`
-3. `3-nasdaq-stock-price-prediction.ipynb`
-4. Other task-specific notebooks as they are completed
+---
 
-## Evaluation Notes
+## Project Structure
 
-Evaluation follows course requirements:
-- appropriate time-series split and validation,
-- justified architecture and hyperparameter choices,
-- clear interpretation of results,
-- and reproducibility through code and documentation.
+```
+DL4AI-240166-project-1/
+├── notebooks/              # All Jupyter notebooks (see walkthrough below)
+│   └── data/               # Prepared datasets (Nasdaq, Vietnam, sentiment)
+├── src/
+│   ├── api/                # FastAPI REST API (Task 5.1)
+│   ├── dashboard/          # Streamlit SaaS app (Task 5.2)
+│   ├── airflow/            # Airflow DAGs & pipeline (Task 5.3)
+│   ├── mongodb/            # MongoDB schema definitions
+│   ├── data/               # Shared data loaders, preprocessors, splitters
+│   └── evaluation/         # Regression metric utilities
+├── models/                 # Saved model artefacts (.keras, .pkl)
+├── reports/                # Deployment write-ups for Task 5
+├── run_api.py              # Entry point to launch the FastAPI server
+├── requirements.txt        # Core dependencies
+└── requirements_api.txt    # API-specific dependencies
+```
 
-## Planned Deliverables
+---
 
-- Completed code and notebooks for Tasks 1-4
-- Optional deployment artifacts for Task 5 (extra credit)
-- Final report (Task 6.1)
-- Clean repository structure and README (Task 6.2, Task 6.3)
+## Notebook Walkthrough
+
+> **Note:** Notebook filenames have not been renamed to avoid breaking cross-notebook dependencies. Follow the order below rather than relying on the filename prefix alone.
+
+### Phase 1 — Data & EDA (Nasdaq)
+
+These notebooks cover the US market pipeline and form the basis for Task 1.
+
+| Notebook | Purpose |
+|----------|---------|
+| `1-exploratory-data-analysis.ipynb` | EDA for the Nasdaq dataset |
+| `2-data-preprocessing.ipynb` | Feature engineering and preprocessing for Nasdaq |
+| `3-nasdaq-stock-price-prediction.ipynb` | LSTM/GRU models — Tasks 1.1, 1.2, 1.3 |
+
+### Phase 2 — Data & EDA (Vietnam)
+
+These notebooks build the Vietnam market data pipeline before the task notebooks are run.
+
+| Notebook | Purpose |
+|----------|---------|
+| `4-vnstock.ipynb` | Load and inspect Vietnam stock market data |
+| `5-sentiment-analysis.ipynb` | Crawl and explore news headlines for Vietnam market |
+| `6-industry-analysis.ipynb` | Crawl fundamental/financial metrics by industry |
+| `7-EDA-vietnam-stock-market.ipynb` | Exploratory data analysis for Vietnam market |
+| `8-data-preprocessing-vnstock.ipynb` | Preprocessing and feature engineering for Vietnam data |
+| `10-sentiment_analysis_final_project-vnstock.ipynb` | Sentiment scoring via a hybrid model; outputs scores in **[−1, 1]** (−1 = negative, 0 = neutral, +1 = positive) |
+
+### Phase 3 — Task Notebooks (Vietnam)
+
+Run these after Phase 2 is complete.
+
+| Notebook | Task |
+|----------|------|
+| `2-vietnam_stock_prediction.ipynb` | Tasks 2.1, 2.2, 2.3 — Vietnam price forecasting |
+| `3-vietnam_trading_signal_identification.ipynb` | Tasks 3.1, 3.2 — buy/sell signal models |
+| `4-vietnam_portfolio_management.ipynb` | Tasks 4.1, 4.2, 4.3 — portfolio composition, risk, and optimisation |
+
+---
+
+## Results Summary
+
+### Task 1 — Nasdaq Stock Price Prediction
+LSTM and GRU architectures were trained on 10 Nasdaq-listed tech stocks (AAPL, AMZN, GOOGL, META, MSFT, MU, NFLX, NVDA, QCOM, and a pooled model). Multi-feature inputs (Open, High, Low, Close, Volume) consistently outperformed close-only baselines. Both single-step (k-th day) and multi-step (k-day horizon) forecasting were implemented, with the best models achieving competitive MAE and RMSE on the held-out test split.
+
+### Task 2 — Vietnam Stock Price Prediction
+The same LSTM/GRU family was applied to Vietnam stocks using the `vnstock` data source. Augmenting price features with sentiment scores and industry fundamentals (from notebooks 5, 6, and 10) provided measurable improvements on multi-horizon forecasts. Seq2Seq architectures with attention were also explored for the k-consecutive-day subtask.
+
+### Task 3 — Trading Signal Identification (Vietnam)
+A multi-task learning (MTL) GRU model and an XGBoost classifier were trained on 10 Vietnam tickers (FPT, VCB, VHM, VNM, HPG, VIC, TCB, MSN, MWG, VND). Technical indicators (SMA, EMA, MACD, RSI, Bollinger Bands) were engineered as additional features. The models output buy, sell, and hold signals and were evaluated using classification metrics including F1-score and confusion matrices.
+
+### Task 4 — Portfolio Management (Vietnam)
+An XGBoost-based profitability ranking and a risk scoring model were trained across 27 Vietnam tickers. Portfolio optimisation combined the return and risk scores under Markowitz-style allocation. Three investor profiles (aggressive, balanced, conservative) were back-tested, with results visualised in `models/task4_*.png`.
+
+---
+
+## Task 5 — Deployment (Extra Credit)
+
+For detailed technical write-ups, see the `reports/` folder:
+
+- [`reports/task5-1_API_services.md`](reports/task5-1_API_services.md) — FastAPI REST API
+- [`reports/task5-2_Model_SaaS.md`](reports/task5-2_Model_SaaS.md) — Streamlit web dashboard
+- [`reports/task5-3_automation_pipeline.md`](reports/task5-3_automation_pipeline.md) — Airflow + MongoDB pipeline
+
+### Quick Start — Task 5.1: FastAPI
+
+```bash
+source venv/bin/activate
+pip install -r requirements_api.txt
+
+python run_api.py
+```
+
+The server starts at `http://0.0.0.0:8000`. Interactive docs are available at:
+
+- `http://localhost:8000/docs` (Swagger UI — recommended)
+- `http://localhost:8000/redoc` (ReDoc)
+
+Available endpoints:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | System status and loaded models |
+| POST | `/predict/price` | 5-day price trajectory forecast |
+| POST | `/predict/signal` | BUY / SELL / HOLD trading signal |
+| GET | `/portfolio/{profile}` | Portfolio composition by risk profile |
+| GET | `/portfolio/scores/profitability` | Task 4.1 profitability scores |
+| GET | `/portfolio/scores/risk` | Task 4.2 risk scores |
+
+### Quick Start — Task 5.2: Streamlit Dashboard
+
+```bash
+streamlit run src/dashboard/app.py
+```
+
+### Quick Start — Task 5.3: Airflow Pipeline
+
+```bash
+export AIRFLOW_HOME=$(pwd)/src/airflow
+airflow db migrate
+airflow users create --username admin --password admin \
+  --firstname Admin --lastname User --role Admin --email admin@example.com
+airflow webserver &
+airflow scheduler &
+```
+
+The DAG `vnalpha_pipeline` in `src/airflow/dags/vnalpha_pipeline.py` handles data ingestion, transformation, model inference, and result storage to MongoDB on a scheduled basis.
+
+---
+
+## Data Sources
+
+- **Nasdaq**: `yfinance` — historical OHLCV data for major tech stocks
+- **Vietnam**: `vnstock` — historical OHLCV, dividend history, financial ratios, news headlines
+
+---
 
 ## Disclaimer
 
-This repository is for academic research and learning purposes only.  
-It is **not** financial advice.
+This repository is for academic research and learning purposes only. It is **not** financial advice.
