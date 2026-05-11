@@ -1,7 +1,7 @@
 # ============================================================
-# TASK 5.2 — Streamlit SaaS Dashboard
-# Vietnam Stock Prediction & Portfolio Management
-# Run: streamlit run src/dashboard/app.py
+# VnAlpha — Vietnam Stock AI Dashboard
+# Task 5.2: Streamlit SaaS
+# Style: Modern FinTech / Clean Neumorphic
 # ============================================================
 
 import streamlit as st
@@ -10,177 +10,483 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
+from streamlit_option_menu import option_menu
 from datetime import datetime
 
-# ── Config ────────────────────────────────────────────────────
 API_BASE = "http://localhost:8000"
 
+# ── Page config ───────────────────────────────────────────────
 st.set_page_config(
-    page_title = "VN Stock AI Dashboard",
+    page_title = "VnAlpha — Vietnam Stock AI",
     page_icon  = "📈",
     layout     = "wide",
     initial_sidebar_state = "expanded"
 )
 
-# ── Custom CSS ────────────────────────────────────────────────
+# ── Global CSS ────────────────────────────────────────────────
 st.markdown("""
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 <style>
-    .main-header {
-        font-size: 2rem;
-        font-weight: bold;
-        color: #1f77b4;
-        text-align: center;
-        padding: 1rem 0;
+    /* ── Base ── */
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif !important;
+        background-color: #F8F9FA;
+    }
+
+    /* Remove Streamlit default padding */
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 1rem !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+    }
+    #MainMenu, footer, header { visibility: hidden; }
+
+    /* ── Sidebar ── */
+    [data-testid="stSidebar"] {
+        background: #ffffff !important;
+        border-right: 1px solid #e9ecef;
+        box-shadow: 2px 0 12px rgba(0,0,0,0.06);
+    }
+    [data-testid="stSidebar"] > div:first-child {
+        padding-top: 1.5rem;
+    }
+
+    /* ── Cards ── */
+    .vna-card {
+        background: #ffffff;
+        border-radius: 20px;
+        padding: 1.4rem 1.6rem;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        margin-bottom: 1rem;
+        border: 1px solid #f0f0f0;
+    }
+    .vna-card-accent {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        border-radius: 20px;
+        padding: 1.4rem 1.6rem;
+        color: white;
+        margin-bottom: 1rem;
+    }
+
+    /* ── Metric Cards ── */
+    .metric-row {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
     }
     .metric-card {
-        background: #f0f2f6;
-        border-radius: 10px;
-        padding: 1rem;
-        text-align: center;
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 1.2rem 1.4rem;
+        flex: 1;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        border: 1px solid #f0f0f0;
     }
-    .signal-buy  { color: #27ae60; font-weight: bold; font-size: 1.5rem; }
-    .signal-sell { color: #e74c3c; font-weight: bold; font-size: 1.5rem; }
-    .signal-hold { color: #f39c12; font-weight: bold; font-size: 1.5rem; }
-    .low-risk    { color: #27ae60; }
-    .medium-risk { color: #f39c12; }
-    .high-risk   { color: #e74c3c; }
+    .metric-card .label {
+        font-size: 0.75rem;
+        color: #6c757d;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.3rem;
+    }
+    .metric-card .value {
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: #1a1a2e;
+    }
+    .metric-card .delta {
+        font-size: 0.8rem;
+        font-weight: 500;
+        margin-top: 0.2rem;
+    }
+    .delta-up   { color: #27ae60; }
+    .delta-down { color: #e74c3c; }
+    .delta-neu  { color: #6c757d; }
+
+    /* ── Signal Badge ── */
+    .badge-buy  {
+        background: #e8f8f0; color: #27ae60;
+        padding: 4px 12px; border-radius: 20px;
+        font-weight: 600; font-size: 0.85rem;
+    }
+    .badge-sell {
+        background: #fde8e8; color: #e74c3c;
+        padding: 4px 12px; border-radius: 20px;
+        font-weight: 600; font-size: 0.85rem;
+    }
+    .badge-hold {
+        background: #fef9e7; color: #f39c12;
+        padding: 4px 12px; border-radius: 20px;
+        font-weight: 600; font-size: 0.85rem;
+    }
+
+    /* ── Risk Badge ── */
+    .risk-low      { color: #27ae60; font-weight: 600; }
+    .risk-medium   { color: #f39c12; font-weight: 600; }
+    .risk-high     { color: #e74c3c; font-weight: 600; }
+    .risk-excluded { color: #8e44ad; font-weight: 600; }
+
+    /* ── Page title ── */
+    .page-title {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: #1a1a2e;
+        margin-bottom: 0.2rem;
+    }
+    .page-subtitle {
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-bottom: 1.5rem;
+    }
+
+    /* ── Brand ── */
+    .brand-logo {
+        font-size: 1.4rem;
+        font-weight: 800;
+        color: #1a1a2e;
+        letter-spacing: -0.03em;
+    }
+    .brand-logo span { color: #5ba8ff; }
+
+    /* ── Option menu override ── */
+    .nav-link {
+        border-radius: 12px !important;
+        margin: 2px 8px !important;
+    }
+    .nav-link.active {
+        background: #5ba8ff !important;
+        color: white !important;
+    }
+
+    /* ── Highlight pill ── */
+    .highlight-pill {
+        background: #fffa93;
+        border-radius: 20px;
+        padding: 2px 10px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #1a1a2e;
+    }
+
+    /* ── Plotly chart background ── */
+    .js-plotly-plot .plotly .main-svg {
+        border-radius: 12px;
+    }
+
+    /* ── Streamlit dataframe ── */
+    [data-testid="stDataFrame"] {
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    /* ── Buttons ── */
+    .stButton > button {
+        background: #5ba8ff !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 12px !important;
+        font-weight: 600 !important;
+        padding: 0.5rem 1.5rem !important;
+        transition: all 0.2s ease !important;
+    }
+    .stButton > button:hover {
+        background: #3d8fe0 !important;
+        box-shadow: 0 4px 12px rgba(91,168,255,0.4) !important;
+        transform: translateY(-1px) !important;
+    }
+
+    /* ── Slider ── */
+    .stSlider [data-baseweb="slider"] {
+        padding-top: 0.5rem;
+    }
 </style>
 """, unsafe_allow_html=True)
 
+# ── Helper: card wrapper ───────────────────────────────────────
+def card(content_fn, title=None, accent=False):
+    cls = "vna-card-accent" if accent else "vna-card"
+    if title:
+        st.markdown(
+            f'<div class="{cls}">'
+            f'<div style="font-weight:600;font-size:0.95rem;'
+            f'color:{"#ccc" if accent else "#1a1a2e"};'
+            f'margin-bottom:0.8rem;">{title}</div>',
+            unsafe_allow_html=True
+        )
+    else:
+        st.markdown(f'<div class="{cls}">', unsafe_allow_html=True)
+    content_fn()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+def metric_cards(items):
+    """items = list of (label, value, delta, delta_type)"""
+    cols_html = ""
+    for label, value, delta, dtype in items:
+        arrow = "↑" if dtype == "up" else "↓" if dtype == "down" else "→"
+        dcls  = f"delta-{dtype}"
+        cols_html += f"""
+        <div class="metric-card">
+            <div class="label">{label}</div>
+            <div class="value">{value}</div>
+            <div class="delta {dcls}">{arrow} {delta}</div>
+        </div>"""
+    st.markdown(
+        f'<div class="metric-row">{cols_html}</div>',
+        unsafe_allow_html=True
+    )
 
 # ── API Helper ────────────────────────────────────────────────
 def call_api(method, endpoint, payload=None):
     try:
         url = f"{API_BASE}{endpoint}"
-        if method == 'get':
-            r = requests.get(url, timeout=30)
-        else:
-            r = requests.post(url, json=payload, timeout=30)
-        if r.status_code == 200:
-            return r.json(), None
-        return None, f"API Error {r.status_code}: {r.text}"
+        r   = requests.get(url, timeout=30) if method == 'get' \
+              else requests.post(url, json=payload, timeout=30)
+        return (r.json(), None) if r.status_code == 200 \
+               else (None, f"API Error {r.status_code}")
     except requests.exceptions.ConnectionError:
-        return None, "Cannot connect to API. Is the server running?"
+        return None, "Cannot connect to API"
     except Exception as e:
         return None, str(e)
 
-
 # ── Sidebar ───────────────────────────────────────────────────
 with st.sidebar:
-    st.image("https://upload.wikimedia.org/wikipedia/commons/"
-             "thumb/2/2e/Flag_of_Vietnam.svg/320px-Flag_of_Vietnam.svg.png",
-             width=80)
-    st.title("VN Stock AI")
-    st.caption("CS313 Deep Learning Project")
-    st.divider()
+    # Brand
+    st.markdown(
+        '<div class="brand-logo" style="padding:0.5rem 1rem 1rem;">'
+        'Vn<span>Alpha</span></div>',
+        unsafe_allow_html=True
+    )
 
-    page = st.selectbox(
-        "Navigate",
-        [
-            "🏠 Overview",
-            "📈 Price Prediction",
-            "🎯 Signal Scanner",
-            "💼 Portfolio",
-            "⚠️ Risk Analysis"
-        ]
+    # API status
+    health, err = call_api('get', '/health')
+    if health:
+        st.markdown(
+            '<div style="margin:0 1rem 1rem;padding:8px 12px;'
+            'background:#e8f8f0;border-radius:10px;font-size:0.8rem;'
+            'color:#27ae60;font-weight:600;">'
+            '<i class="bi bi-circle-fill"></i> API Connected</div>',
+            unsafe_allow_html=True
+        )
+    else:
+        st.markdown(
+            '<div style="margin:0 1rem 1rem;padding:8px 12px;'
+            'background:#fde8e8;border-radius:10px;font-size:0.8rem;'
+            'color:#e74c3c;font-weight:600;">'
+            '<i class="bi bi-circle-fill"></i> API Offline</div>',
+            unsafe_allow_html=True
+        )
+
+    # Navigation
+    page = option_menu(
+        menu_title  = None,
+        options     = [
+            "Overview", "Price Prediction",
+            "Signal Scanner", "Portfolio", "Risk Analysis"
+        ],
+        icons       = [
+            "house-fill", "graph-up-arrow",
+            "crosshair", "briefcase-fill",
+            "exclamation-triangle-fill"
+        ],
+        default_index = 0,
+        styles = {
+            "container"  : {"padding": "0", "background": "white"},
+            "icon"       : {"font-size": "0.9rem"},
+            "nav-link"   : {
+                "font-size"    : "0.88rem",
+                "font-weight"  : "500",
+                "color"        : "#495057",
+                "border-radius": "12px",
+                "margin"       : "2px 8px",
+            },
+            "nav-link-selected": {
+                "background-color": "#5ba8ff",
+                "color"           : "white",
+                "font-weight"     : "600",
+            },
+        }
     )
 
     st.divider()
+    st.markdown(
+        '<div style="padding:0 1rem;font-size:0.75rem;color:#adb5bd;">'
+        'CS313 Deep Learning<br/>Student: DL4AI-240166</div>',
+        unsafe_allow_html=True
+    )
 
-    # API Status
-    health, err = call_api('get', '/health')
-    if health:
-        st.success("API Connected ✓")
-        st.caption(f"Version: {health.get('version', 'N/A')}")
-    else:
-        st.error(f"API Offline ✗")
-        st.caption(err)
+# ── PLOTLY THEME ──────────────────────────────────────────────
+PLOT_LAYOUT = dict(
+    paper_bgcolor = 'rgba(0,0,0,0)',
+    plot_bgcolor  = 'rgba(0,0,0,0)',
+    font          = dict(family='Inter', color='#1a1a2e'),
+    margin        = dict(l=10, r=10, t=40, b=10),
+    xaxis         = dict(showgrid=True, gridcolor='#f0f0f0',
+                         linecolor='#e9ecef'),
+    yaxis         = dict(showgrid=True, gridcolor='#f0f0f0',
+                         linecolor='#e9ecef'),
+)
 
+ALL_TICKERS = [
+    'FPT','VCB','VHM','VNM','HPG','VIC','TCB',
+    'MSN','MWG','VND','HDB','GAS','SAB','PNJ',
+    'MBB','ACB','CTG','BID','SHB','TPB','KDH',
+    'DXG','HSG','PDR','CMG','ELC','SGT'
+]
 
 # ============================================================
 # PAGE 1: OVERVIEW
 # ============================================================
-if page == "🏠 Overview":
+if page == "Overview":
     st.markdown(
-        '<div class="main-header">🇻🇳 Vietnam Stock AI Dashboard</div>',
+        '<div class="page-title">Good Morning 👋</div>'
+        '<div class="page-subtitle">Here\'s your VnAlpha market '
+        'intelligence summary</div>',
         unsafe_allow_html=True
     )
 
-    st.markdown("""
-    > *A deep learning-powered platform for Vietnamese stock market
-    > prediction, trading signal identification, and portfolio management.*
-    """)
+    # Top metrics
+    metric_cards([
+        ("Universe",        "27 Tickers",  "HOSE Blue Chips",   "neu"),
+        ("Selection Alpha", "+53.59%",     "vs VNI Benchmark",  "up"),
+        ("Best Sharpe",     "1.3969",      "Equal-Weight Port", "up"),
+        ("Active Models",   "3 Models",    "MTL + XGB + GRU",   "neu"),
+    ])
 
-    col1, col2, col3, col4 = st.columns(4)
-
-    with col1:
-        st.metric("Universe", "27 Tickers", "HOSE Blue Chips")
-    with col2:
-        st.metric("Models", "3 Active", "MTL + XGBoost + GRU")
-    with col3:
-        st.metric("Best Sharpe", "1.3969", "Equal-Weight Portfolio")
-    with col4:
-        st.metric("Selection Alpha", "+53.59%", "vs VNI Benchmark")
-
-    st.divider()
-
-    col_l, col_r = st.columns(2)
+    col_l, col_r = st.columns([3, 2])
 
     with col_l:
-        st.subheader("📊 System Architecture")
-        st.markdown("""
-        | Component | Model | Task |
-        |---|---|---|
-        | Price Prediction | MTL Seq2Seq GRU | Task 2 |
-        | Signal ID | XGBoost (43 features) | Task 3 |
-        | Stock Selection | 5-Factor Scoring | Task 4.1 |
-        | Risk Management | Sharpe + SELL signals | Task 4.2 |
-        | Portfolio | Mean-Variance Opt. | Task 4.3 |
-        """)
+        st.markdown('<div class="vna-card">', unsafe_allow_html=True)
+        st.markdown(
+            '<div style="font-weight:600;margin-bottom:1rem;">'
+            'Portfolio Performance Comparison</div>',
+            unsafe_allow_html=True
+        )
+        df_perf = pd.DataFrame({
+            'Profile'     : ['Risk-Taking','Prudent',
+                             'Equal-Weight','VNI Benchmark'],
+            'Total Return': [35.73, 16.44, 53.93, 40.74],
+            'Sharpe'      : [0.8596, 0.4550, 1.3969, 1.1694],
+            'Max Drawdown': [-23.20, -21.97, -19.24, None]
+        })
+        fig = go.Figure()
+        colors = ['#5ba8ff','#a8d8ea','#fffa93','#e9ecef']
+        for i, row in df_perf.iterrows():
+            fig.add_trace(go.Bar(
+                name=row['Profile'],
+                x=[row['Profile']],
+                y=[row['Total Return']],
+                marker_color=colors[i],
+                text=f"{row['Total Return']:.1f}%",
+                textposition='outside',
+                showlegend=False
+            ))
+        fig.update_layout(
+            **PLOT_LAYOUT,
+            title='Total Return by Portfolio Profile (%)',
+            height=280, bargap=0.3
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
     with col_r:
-        st.subheader("🏆 Portfolio Performance")
-        perf_data = {
-            'Profile'     : ['Risk-Taking', 'Prudent',
-                             'Equal-Weight', 'VNI'],
-            'Total Return': [35.73, 16.44, 53.93, 40.74],
-            'Sharpe'      : [0.8596, 0.4550, 1.3969, 1.1694]
-        }
-        df_perf = pd.DataFrame(perf_data)
-        fig = px.bar(
-            df_perf, x='Profile', y='Total Return',
-            color='Sharpe', color_continuous_scale='RdYlGn',
-            title='Portfolio Total Returns (%)',
-            text='Total Return'
+        st.markdown('<div class="vna-card">', unsafe_allow_html=True)
+        st.markdown(
+            '<div style="font-weight:600;margin-bottom:1rem;">'
+            'Model Validation</div>',
+            unsafe_allow_html=True
         )
-        fig.update_traces(texttemplate='%{text:.1f}%')
-        fig.update_layout(height=300, showlegend=False)
-        st.plotly_chart(fig, use_container_width=True)
+        st.markdown("""
+        <table style="width:100%;font-size:0.82rem;border-collapse:collapse;">
+        <tr style="border-bottom:1px solid #f0f0f0;">
+            <td style="padding:6px 0;color:#6c757d;">Spearman ρ</td>
+            <td style="font-weight:600;text-align:right;">0.5562***</td>
+        </tr>
+        <tr style="border-bottom:1px solid #f0f0f0;">
+            <td style="padding:6px 0;color:#6c757d;">Top 10 Overlap</td>
+            <td style="font-weight:600;text-align:right;">9/10 (90%)</td>
+        </tr>
+        <tr style="border-bottom:1px solid #f0f0f0;">
+            <td style="padding:6px 0;color:#6c757d;">Positive Precision</td>
+            <td style="font-weight:600;text-align:right;">90% vs 35%</td>
+        </tr>
+        <tr style="border-bottom:1px solid #f0f0f0;">
+            <td style="padding:6px 0;color:#6c757d;">Selection Alpha</td>
+            <td style="font-weight:600;color:#27ae60;text-align:right;">+98.90%</td>
+        </tr>
+        <tr>
+            <td style="padding:6px 0;color:#6c757d;">vs VNI</td>
+            <td style="font-weight:600;color:#27ae60;text-align:right;">+53.59%</td>
+        </tr>
+        </table>
+        """, unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
+        # Architecture card
+        st.markdown('<div class="vna-card">', unsafe_allow_html=True)
+        st.markdown(
+            '<div style="font-weight:600;margin-bottom:0.8rem;">'
+            'Pipeline</div>',
+            unsafe_allow_html=True
+        )
+        steps = [
+            ("📊", "Data",       "27 HOSE tickers"),
+            ("🧠", "MTL Model",  "GRU + Attention"),
+            ("🎯", "Signals",    "XGBoost 43 features"),
+            ("⚖️",  "Portfolio", "Mean-Variance Opt."),
+        ]
+        for icon, title, desc in steps:
+            st.markdown(
+                f'<div style="display:flex;align-items:center;'
+                f'gap:10px;padding:6px 0;border-bottom:1px solid #f0f0f0;">'
+                f'<span style="font-size:1.1rem;">{icon}</span>'
+                f'<div><div style="font-weight:600;font-size:0.82rem;">'
+                f'{title}</div>'
+                f'<div style="color:#6c757d;font-size:0.75rem;">'
+                f'{desc}</div></div></div>',
+                unsafe_allow_html=True
+            )
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # ============================================================
 # PAGE 2: PRICE PREDICTION
 # ============================================================
-elif page == "📈 Price Prediction":
-    st.title("📈 Price Prediction")
-    st.caption("MTL Seq2Seq GRU + Attention — 5-day trajectory forecast")
+elif page == "Price Prediction":
+    st.markdown(
+        '<div class="page-title">📈 Price Prediction</div>'
+        '<div class="page-subtitle">MTL Seq2Seq GRU + Attention '
+        '— 5-day trajectory forecast</div>',
+        unsafe_allow_html=True
+    )
 
-    col1, col2 = st.columns([1, 2])
+    col1, col2 = st.columns([1, 2.5])
 
     with col1:
-        st.subheader("Input")
-        ticker = st.selectbox(
-            "Select Ticker",
-            ['FPT', 'VCB', 'VHM', 'VNM', 'HPG', 'VIC',
-             'TCB', 'MSN', 'MWG', 'VND', 'HDB', 'GAS',
-             'MBB', 'ACB', 'HPG', 'SAB', 'PNJ']
+        st.markdown('<div class="vna-card">', unsafe_allow_html=True)
+        st.markdown(
+            '<div style="font-weight:600;margin-bottom:1rem;">'
+            'Configure</div>',
+            unsafe_allow_html=True
         )
-        n_days = st.slider(
-            "Historical window (days)", 20, 60, 20
-        )
+        ticker = st.selectbox("Ticker", ALL_TICKERS[:17])
+        n_days = st.slider("Lookback (days)", 20, 60, 20)
         predict_btn = st.button(
-            "🔮 Predict", type="primary", use_container_width=True
+            "🔮 Run Prediction", use_container_width=True
         )
+        st.markdown(
+            '<div style="margin-top:1rem;padding:10px;'
+            'background:#f8f9fa;border-radius:10px;'
+            'font-size:0.75rem;color:#6c757d;">'
+            '<b>Model:</b> MTL Seq2Seq<br/>'
+            '<b>Output:</b> 5-day return trajectory<br/>'
+            '<b>Features:</b> 25 technical indicators'
+            '</div>',
+            unsafe_allow_html=True
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
 
     with col2:
         if predict_btn:
@@ -193,372 +499,503 @@ elif page == "📈 Price Prediction":
             if err:
                 st.error(err)
             elif result:
-                # Direction badge
-                direction = result['direction']
+                direction  = result['direction']
                 confidence = result['confidence']
+                cur_price  = result['current_price']
+                pred_prices= result['predicted_prices']
+                pred_rets  = result['predicted_returns']
 
-                col_a, col_b, col_c = st.columns(3)
-                with col_a:
-                    st.metric("Current Price",
-                              f"{result['current_price']:,.0f} VND")
-                with col_b:
-                    delta_color = "normal" if direction == "UP" \
-                                  else "inverse"
-                    st.metric(
-                        "Direction",
-                        f"{'⬆' if direction=='UP' else '⬇' if direction=='DOWN' else '➡'} {direction}",
-                        f"Confidence: {confidence:.1%}"
-                    )
-                with col_c:
-                    target = result['predicted_prices'][-1] \
-                             if result['predicted_prices'] else 0
-                    change = (target - result['current_price']) / \
-                             result['current_price'] * 100
-                    st.metric(
-                        "5-Day Target",
-                        f"{target:,.0f} VND",
-                        f"{change:+.2f}%"
-                    )
+                # Metrics row
+                dir_icon  = "⬆️" if direction=="UP" \
+                            else "⬇️" if direction=="DOWN" \
+                            else "➡️"
+                target    = pred_prices[-1] if pred_prices \
+                            else cur_price
+                chg       = (target - cur_price) / cur_price * 100
+                dtype     = "up" if chg > 0 else "down" \
+                            if chg < 0 else "neu"
 
-                # Price trajectory chart
-                days   = ['Today'] + [f"Day {i+1}" for i in range(5)]
-                prices = [result['current_price']] + \
-                          result['predicted_prices']
+                metric_cards([
+                    ("Current Price",
+                     f"{cur_price:,.0f} đ", "Latest close", "neu"),
+                    ("Direction",
+                     f"{dir_icon} {direction}",
+                     f"Confidence {confidence:.1%}", dtype),
+                    ("5-Day Target",
+                     f"{target:,.0f} đ",
+                     f"{chg:+.2f}%", dtype),
+                ])
 
+                # Chart
+                n_pred = len(pred_prices) if pred_prices else 1
+                days   = ['Today'] + [f"Day {i+1}"
+                                       for i in range(n_pred)]
+                prices = [cur_price] + (pred_prices or [cur_price])
+                lc     = '#27ae60' if direction=='UP' \
+                         else '#e74c3c' if direction=='DOWN' \
+                         else '#f39c12'
+
+                st.markdown('<div class="vna-card">',
+                            unsafe_allow_html=True)
                 fig = go.Figure()
+                fig.add_hline(
+                    y=cur_price, line_dash='dash',
+                    line_color='#adb5bd', line_width=1,
+                    annotation_text='Current Price',
+                    annotation_font_size=10
+                )
                 fig.add_trace(go.Scatter(
                     x=days, y=prices,
                     mode='lines+markers',
-                    name='Predicted Price',
-                    line=dict(
-                        color='#27ae60' if direction=='UP'
-                              else '#e74c3c',
-                        width=2.5
+                    name='Predicted',
+                    line=dict(color=lc, width=3),
+                    marker=dict(
+                        size=10, color=lc,
+                        line=dict(color='white', width=2)
                     ),
-                    marker=dict(size=8)
+                    fill='tonexty' if len(prices) > 1 else None,
                 ))
-                fig.add_hline(
-                    y=result['current_price'],
-                    line_dash="dash",
-                    line_color="gray",
-                    annotation_text="Current Price"
-                )
                 fig.update_layout(
-                    title=f"{ticker} — 5-Day Price Forecast",
+                    **PLOT_LAYOUT,
+                    title=f"{ticker} — Price Forecast",
                     xaxis_title="Trading Day",
                     yaxis_title="Price (VND)",
-                    height=350
+                    height=320,
+                    showlegend=False
                 )
                 st.plotly_chart(fig, use_container_width=True)
+                st.markdown('</div>', unsafe_allow_html=True)
 
-                # Returns table
-                if result['predicted_returns']:
-                    st.subheader("Daily Log Returns")
-                    ret_df = pd.DataFrame({
-                        'Day'       : [f"Day {i+1}" for i in range(
-                            len(result['predicted_returns'])
-                        )],
-                        'Log Return': result['predicted_returns'],
-                        'Price'     : result['predicted_prices']
-                    })
-                    st.dataframe(ret_df, use_container_width=True)
+                # Forecast table
+                if pred_prices and pred_rets:
+                    st.markdown('<div class="vna-card">',
+                                unsafe_allow_html=True)
+                    st.markdown(
+                        '<div style="font-weight:600;'
+                        'margin-bottom:0.8rem;">Forecast Details</div>',
+                        unsafe_allow_html=True
+                    )
+                    rows = []
+                    for i, (p, r) in enumerate(
+                        zip(pred_prices, pred_rets), 1
+                    ):
+                        chg_pct = (p-cur_price)/cur_price*100
+                        rows.append({
+                            'Day'    : f"Day {i}",
+                            'Price'  : f"{p:,.2f} VND",
+                            'LogRet' : f"{r:.4f}",
+                            'Change%': f"{chg_pct:+.2f}%"
+                        })
+                    st.dataframe(
+                        pd.DataFrame(rows),
+                        use_container_width=True,
+                        hide_index=True
+                    )
 
+                    # Gauge
+                    gauge_color = '#27ae60' if confidence > 0.6 \
+                                  else '#f39c12' if confidence > 0.4 \
+                                  else '#e74c3c'
+                    fig_g = go.Figure(go.Indicator(
+                        mode  = "gauge+number",
+                        value = confidence * 100,
+                        title = {'text': "Model Conviction (%)"},
+                        gauge = {
+                            'axis' : {'range': [0, 100]},
+                            'bar'  : {'color': gauge_color},
+                            'steps': [
+                                {'range':[0,40],  'color':'#fde8e8'},
+                                {'range':[40,55], 'color':'#fef9e7'},
+                                {'range':[55,100],'color':'#e8f8f0'},
+                            ],
+                            'threshold': {
+                                'line'     : {'color':'red','width':3},
+                                'thickness': 0.75,
+                                'value'    : 55
+                            }
+                        }
+                    ))
+                    fig_g.update_layout(
+                        **PLOT_LAYOUT, height=220
+                    )
+                    st.plotly_chart(fig_g, use_container_width=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
 
 # ============================================================
 # PAGE 3: SIGNAL SCANNER
 # ============================================================
-elif page == "🎯 Signal Scanner":
-    st.title("🎯 Trading Signal Scanner")
-    st.caption(
-        "XGBoost Classifier — BUY/SELL/HOLD signals "
-        "with conviction gating"
+elif page == "Signal Scanner":
+    st.markdown(
+        '<div class="page-title">🎯 Signal Scanner</div>'
+        '<div class="page-subtitle">XGBoost Classifier — '
+        'BUY/SELL/HOLD with conviction gating</div>',
+        unsafe_allow_html=True
     )
 
     col1, col2 = st.columns([1, 3])
 
     with col1:
-        st.subheader("Settings")
+        st.markdown('<div class="vna-card">', unsafe_allow_html=True)
+        st.markdown(
+            '<div style="font-weight:600;margin-bottom:1rem;">'
+            'Settings</div>',
+            unsafe_allow_html=True
+        )
         threshold = st.slider(
             "Conviction Threshold",
-            min_value=0.40, max_value=0.80,
-            value=0.55, step=0.05
+            0.40, 0.80, 0.55, 0.05
+        )
+        st.markdown(
+            f'<div class="highlight-pill" style="margin-bottom:1rem;">'
+            f'Active DA @ 0.55: 63.64%</div>',
+            unsafe_allow_html=True
         )
         scan_all = st.button(
-            "🔍 Scan All Tickers",
-            type="primary",
-            use_container_width=True
+            "🔍 Scan All", use_container_width=True
         )
-
         st.divider()
-        single_ticker = st.selectbox(
-            "Or scan single ticker",
-            ['FPT', 'VCB', 'VHM', 'VNM', 'HPG',
-             'VIC', 'TCB', 'MSN', 'MWG', 'VND',
-             'HDB', 'GAS', 'SAB', 'PNJ', 'MBB']
-        )
+        single = st.selectbox("Single Ticker", ALL_TICKERS[:18])
         scan_one = st.button(
-            "🎯 Scan",
-            use_container_width=True
+            "🎯 Scan", use_container_width=True
         )
+        st.markdown('</div>', unsafe_allow_html=True)
 
     with col2:
-        tickers_to_scan = []
+        to_scan = ALL_TICKERS[:18] if scan_all \
+                  else [single] if scan_one else []
 
-        if scan_all:
-            tickers_to_scan = [
-                'FPT', 'VCB', 'VHM', 'VNM', 'HPG',
-                'VIC', 'TCB', 'MSN', 'MWG', 'VND',
-                'HDB', 'GAS', 'SAB', 'PNJ', 'MBB'
-            ]
-        elif scan_one:
-            tickers_to_scan = [single_ticker]
-
-        if tickers_to_scan:
-            results = []
-            progress = st.progress(0)
-            for i, t in enumerate(tickers_to_scan):
+        if to_scan:
+            results  = []
+            prog = st.progress(0, text="Scanning...")
+            for i, t in enumerate(to_scan):
                 r, _ = call_api(
                     'post', '/predict/signal',
                     {"ticker": t, "threshold": threshold}
                 )
-                if r:
-                    results.append(r)
-                progress.progress((i + 1) / len(tickers_to_scan))
-            progress.empty()
+                if r: results.append(r)
+                prog.progress(
+                    (i+1)/len(to_scan),
+                    text=f"Scanning {t}..."
+                )
+            prog.empty()
 
             if results:
-                df_sig = pd.DataFrame(results)
+                df = pd.DataFrame(results)
+                n_buy  = (df['signal']=='BUY').sum()
+                n_sell = (df['signal']=='SELL').sum()
+                n_hold = (df['signal']=='HOLD').sum()
 
-                # Summary metrics
-                n_buy  = (df_sig['signal'] == 'BUY').sum()
-                n_sell = (df_sig['signal'] == 'SELL').sum()
-                n_hold = (df_sig['signal'] == 'HOLD').sum()
+                metric_cards([
+                    ("BUY Signals",  str(n_buy),  "↑ Entry",  "up"),
+                    ("SELL Signals", str(n_sell), "↓ Exit",   "down"),
+                    ("HOLD",         str(n_hold), "→ Wait",   "neu"),
+                ])
 
-                c1, c2, c3 = st.columns(3)
-                c1.metric("🟢 BUY Signals",  n_buy)
-                c2.metric("🔴 SELL Signals", n_sell)
-                c3.metric("🟡 HOLD",         n_hold)
-
-                # Signal table
-                def color_signal(val):
-                    if val == 'BUY':
-                        return 'color: #27ae60; font-weight: bold'
-                    elif val == 'SELL':
-                        return 'color: #e74c3c; font-weight: bold'
-                    return 'color: #f39c12'
-
-                display_cols = [
-                    'ticker', 'signal', 'p_buy',
-                    'p_sell', 'conviction', 'signal_date'
-                ]
-                df_display = df_sig[display_cols].copy()
-                df_display = df_display.sort_values(
-                    'conviction', ascending=False
+                # Signal bar chart
+                st.markdown('<div class="vna-card">',
+                            unsafe_allow_html=True)
+                st.markdown(
+                    '<div style="font-weight:600;'
+                    'margin-bottom:0.8rem;">'
+                    'Signal Strength</div>',
+                    unsafe_allow_html=True
                 )
+                ds = df.sort_values('conviction', ascending=False)
+                fig = go.Figure()
 
-                st.dataframe(
-                    df_display.style.applymap(
-                        color_signal, subset=['signal']
-                    ).format({
-                        'p_buy'     : '{:.2%}',
-                        'p_sell'    : '{:.2%}',
-                        'conviction': '{:.2%}'
-                    }),
-                    use_container_width=True
-                )
+                buy_df  = ds[ds['signal']=='BUY']
+                sell_df = ds[ds['signal']=='SELL']
+                hold_df = ds[ds['signal']=='HOLD']
 
-                # Conviction chart
-                fig = px.bar(
-                    df_display.head(10),
-                    x='ticker', y='conviction',
-                    color='signal',
-                    color_discrete_map={
-                        'BUY' : '#27ae60',
-                        'SELL': '#e74c3c',
-                        'HOLD': '#f39c12'
-                    },
-                    title='Conviction Scores by Ticker',
+                if len(buy_df):
+                    fig.add_trace(go.Bar(
+                        x=buy_df['ticker'],
+                        y=buy_df['p_buy'],
+                        name='BUY',
+                        marker_color='#27ae60',
+                        text=buy_df['p_buy'].map(
+                            lambda x: f"{x:.0%}"
+                        ),
+                        textposition='outside'
+                    ))
+                if len(sell_df):
+                    fig.add_trace(go.Bar(
+                        x=sell_df['ticker'],
+                        y=-sell_df['p_sell'],
+                        name='SELL',
+                        marker_color='#e74c3c',
+                        text=sell_df['p_sell'].map(
+                            lambda x: f"{x:.0%}"
+                        ),
+                        textposition='outside'
+                    ))
+                if len(hold_df):
+                    fig.add_trace(go.Bar(
+                        x=hold_df['ticker'],
+                        y=hold_df['conviction'],
+                        name='HOLD',
+                        marker_color='#f39c12',
+                        opacity=0.5
+                    ))
+
+                fig.add_hline(
+                    y= threshold, line_dash='dash',
+                    line_color='#27ae60', line_width=1.5,
+                    annotation_text=f'BUY ≥{threshold}'
                 )
                 fig.add_hline(
-                    y=threshold, line_dash="dash",
-                    line_color="red",
-                    annotation_text=f"Threshold ({threshold})"
+                    y=-threshold, line_dash='dash',
+                    line_color='#e74c3c', line_width=1.5,
+                    annotation_text=f'SELL ≥{threshold}'
                 )
-                fig.update_layout(height=300)
+                fig.add_hline(y=0, line_color='#dee2e6', line_width=1)
+                fig.update_layout(
+                    **PLOT_LAYOUT,
+                    height=340, barmode='overlay',
+                    yaxis_title='Signal Probability'
+                )
                 st.plotly_chart(fig, use_container_width=True)
+                st.markdown('</div>', unsafe_allow_html=True)
 
+                # Signal table
+                st.markdown('<div class="vna-card">',
+                            unsafe_allow_html=True)
+                st.markdown(
+                    '<div style="font-weight:600;'
+                    'margin-bottom:0.8rem;">Signal Details</div>',
+                    unsafe_allow_html=True
+                )
+
+                def badge(val):
+                    cls = {'BUY':'badge-buy',
+                           'SELL':'badge-sell',
+                           'HOLD':'badge-hold'}.get(val,'')
+                    return f'<span class="{cls}">{val}</span>'
+
+                disp = ds[[
+                    'ticker','signal','p_buy','p_sell',
+                    'conviction','signal_date'
+                ]].copy()
+
+                # Use map() not applymap()
+                styled = disp.style.map(
+                    lambda v: (
+                        'color:#27ae60;font-weight:600'
+                        if v=='BUY' else
+                        'color:#e74c3c;font-weight:600'
+                        if v=='SELL' else
+                        'color:#f39c12;font-weight:600'
+                    ),
+                    subset=['signal']
+                ).format({
+                    'p_buy'     : '{:.2%}',
+                    'p_sell'    : '{:.2%}',
+                    'conviction': '{:.2%}'
+                })
+                st.dataframe(
+                    styled, use_container_width=True,
+                    hide_index=True
+                )
+                st.markdown('</div>', unsafe_allow_html=True)
 
 # ============================================================
 # PAGE 4: PORTFOLIO
 # ============================================================
-elif page == "💼 Portfolio":
-    st.title("💼 Portfolio Composition")
-    st.caption("Mean-Variance Optimization — 3 investor profiles")
-
-    profile_choice = st.radio(
-        "Select Profile",
-        ["risk_taking", "prudent", "equal_weight"],
-        format_func=lambda x: {
-            'risk_taking' : '🚀 Risk-Taking (9 stocks)',
-            'prudent'     : '🛡️ Prudent (3 stocks)',
-            'equal_weight': '⚖️ Equal-Weight (10 stocks)'
-        }[x],
-        horizontal=True
+elif page == "Portfolio":
+    st.markdown(
+        '<div class="page-title">💼 Portfolio</div>'
+        '<div class="page-subtitle">Mean-Variance Optimization '
+        '— 3 investor profiles</div>',
+        unsafe_allow_html=True
     )
 
-    data, err = call_api('get', f'/portfolio/{profile_choice}')
+    profile_map = {
+        '🚀 Risk-Taking (9 stocks)' : 'risk_taking',
+        '🛡️ Prudent (3 stocks)'     : 'prudent',
+        '⚖️ Equal-Weight (10 stocks)': 'equal_weight',
+    }
+    profile_label = st.radio(
+        "Profile", list(profile_map.keys()), horizontal=True
+    )
+    profile = profile_map[profile_label]
 
+    data, err = call_api('get', f'/portfolio/{profile}')
     if err:
         st.error(err)
     elif data:
-        col1, col2, col3 = st.columns(3)
-        col1.metric(
-            "Expected Annual Return",
-            f"{data['expected_return']:.1%}"
-        )
-        col2.metric(
-            "Annual Volatility",
-            f"{data['expected_vol']:.1%}"
-        )
-        col3.metric(
-            "Sharpe Ratio",
-            f"{data['sharpe_ratio']:.4f}"
-        )
+        ret = data['expected_return']
+        vol = data['expected_vol']
+        sr  = data['sharpe_ratio']
+
+        metric_cards([
+            ("Expected Return", f"{ret:.1%}", "Annual", "up"),
+            ("Volatility",      f"{vol:.1%}", "Annual", "down"),
+            ("Sharpe Ratio",    f"{sr:.4f}",  "Risk-adjusted","neu"),
+            ("# Holdings",
+             str(data['total_stocks']), "Positions","neu"),
+        ])
 
         stocks = pd.DataFrame(data['stocks'])
+        cl, cr = st.columns(2)
 
-        col_l, col_r = st.columns(2)
-
-        with col_l:
-            # Pie chart
+        with cl:
+            st.markdown('<div class="vna-card">',
+                        unsafe_allow_html=True)
             fig = px.pie(
-                stocks, values='weight',
-                names='ticker',
-                title='Portfolio Allocation',
-                color_discrete_sequence=px.colors.qualitative.Set3
+                stocks, values='weight', names='ticker',
+                title='Allocation',
+                color_discrete_sequence=[
+                    '#5ba8ff','#a8d8ea','#fffa93',
+                    '#b8e6c1','#f9c784','#e8b4d8',
+                    '#c4d4f0','#ffd3b6','#d4f0c4','#f0d4d4'
+                ]
             )
             fig.update_traces(textinfo='percent+label')
-            fig.update_layout(height=350)
+            fig.update_layout(**PLOT_LAYOUT, height=320,
+                              showlegend=False)
             st.plotly_chart(fig, use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
 
-        with col_r:
-            # Sector breakdown
-            sector_df = stocks.groupby('sector')[
-                'weight'
-            ].sum().reset_index()
+        with cr:
+            st.markdown('<div class="vna-card">',
+                        unsafe_allow_html=True)
+            sec = stocks.groupby('sector')['weight'] \
+                        .sum().reset_index()
             fig2 = px.bar(
-                sector_df, x='sector', y='weight',
+                sec, x='sector', y='weight',
                 title='Sector Allocation',
                 color='sector',
-                color_discrete_sequence=px.colors.qualitative.Pastel
+                color_discrete_sequence=[
+                    '#5ba8ff','#fffa93','#27ae60',
+                    '#e74c3c','#f39c12'
+                ]
             )
             fig2.update_layout(
-                height=350, showlegend=False,
+                **PLOT_LAYOUT, height=320,
+                showlegend=False,
                 yaxis_tickformat='.0%'
             )
             st.plotly_chart(fig2, use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
 
         # Holdings table
-        st.subheader("Holdings")
-        def color_risk(val):
-            if val == 'LOW':    return 'color: #27ae60'
-            if val == 'MEDIUM': return 'color: #f39c12'
-            if val == 'HIGH':   return 'color: #e74c3c'
-            return ''
-
-        st.dataframe(
-            stocks.style.applymap(
-                color_risk, subset=['risk_flag']
-            ).format({'weight': '{:.2%}', 'risk_score': '{:.2f}'}),
-            use_container_width=True
+        st.markdown('<div class="vna-card">', unsafe_allow_html=True)
+        st.markdown(
+            '<div style="font-weight:600;margin-bottom:0.8rem;">'
+            'Holdings</div>',
+            unsafe_allow_html=True
         )
-
+        # FIX: use map() not applymap()
+        styled = stocks.style.map(
+            lambda v: (
+                'color:#27ae60;font-weight:600' if v=='LOW' else
+                'color:#f39c12;font-weight:600' if v=='MEDIUM' else
+                'color:#e74c3c;font-weight:600' if v=='HIGH' else
+                'color:#8e44ad;font-weight:600'
+            ),
+            subset=['risk_flag']
+        ).format({
+            'weight'    : '{:.2%}',
+            'risk_score': '{:.2f}'
+        })
+        st.dataframe(styled, use_container_width=True,
+                     hide_index=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # ============================================================
 # PAGE 5: RISK ANALYSIS
 # ============================================================
-elif page == "⚠️ Risk Analysis":
-    st.title("⚠️ Risk Analysis")
-    st.caption(
-        "Five-component risk scoring + Sharpe stress test"
+elif page == "Risk Analysis":
+    st.markdown(
+        '<div class="page-title">⚠️ Risk Analysis</div>'
+        '<div class="page-subtitle">5-component scoring '
+        '+ Sharpe stress test</div>',
+        unsafe_allow_html=True
     )
 
     data, err = call_api('get', '/portfolio/scores/risk')
-
     if err:
         st.error(err)
     elif data:
-        df_risk = pd.DataFrame(data['scores'])
+        df = pd.DataFrame(data['scores'])
 
-        # Summary
-        n_low      = (df_risk['risk_flag'] == 'LOW').sum()
-        n_medium   = (df_risk['risk_flag'] == 'MEDIUM').sum()
-        n_high     = (df_risk['risk_flag'] == 'HIGH').sum()
-        n_excluded = (df_risk['risk_flag'] == 'EXCLUDED').sum()
+        n_low  = (df['risk_flag']=='LOW').sum()
+        n_med  = (df['risk_flag']=='MEDIUM').sum()
+        n_high = (df['risk_flag']=='HIGH').sum()
+        n_excl = (df['risk_flag']=='EXCLUDED').sum()
 
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("🟢 LOW Risk",      n_low)
-        c2.metric("🟡 MEDIUM Risk",   n_medium)
-        c3.metric("🔴 HIGH Risk",     n_high)
-        c4.metric("⛔ EXCLUDED",      n_excluded)
+        metric_cards([
+            ("🟢 LOW Risk",  str(n_low),  "Safe to hold",    "up"),
+            ("🟡 MEDIUM",    str(n_med),  "Monitor closely", "neu"),
+            ("🔴 HIGH Risk", str(n_high), "Reduce exposure", "down"),
+            ("⛔ EXCLUDED",  str(n_excl), "Do not hold",     "down"),
+        ])
 
-        # Risk bar chart
-        df_sorted = df_risk.sort_values(
-            'composite_risk', ascending=True
-        )
-        color_map = {
-            'LOW'     : '#27ae60',
-            'MEDIUM'  : '#f39c12',
-            'HIGH'    : '#e74c3c',
-            'EXCLUDED': '#8e44ad'
+        ds     = df.sort_values('composite_risk', ascending=True)
+        cmap   = {
+            'LOW'     :'#27ae60','MEDIUM':'#f39c12',
+            'HIGH'    :'#e74c3c','EXCLUDED':'#8e44ad'
         }
-        colors = [
-            color_map.get(f, 'gray')
-            for f in df_sorted['risk_flag']
-        ]
+        colors = [cmap.get(f,'gray') for f in ds['risk_flag']]
 
+        st.markdown('<div class="vna-card">', unsafe_allow_html=True)
         fig = go.Figure(go.Bar(
-            x=df_sorted['composite_risk'],
-            y=df_sorted['ticker'],
+            x=ds['composite_risk'],
+            y=ds['ticker'],
             orientation='h',
             marker_color=colors,
-            text=df_sorted['composite_risk'].round(2),
+            text=ds['composite_risk'].round(2),
             textposition='outside'
         ))
-        fig.add_vline(x=5.0, line_dash="dash",
-                      line_color="orange",
-                      annotation_text="Prudent (5.0)")
-        fig.add_vline(x=7.0, line_dash="dash",
-                      line_color="red",
-                      annotation_text="Risk-Taking (7.0)")
+        fig.add_vline(
+            x=5.0, line_dash='dash', line_color='#f39c12',
+            annotation_text='Prudent threshold (5.0)',
+            annotation_font_size=10
+        )
+        fig.add_vline(
+            x=7.0, line_dash='dash', line_color='#e74c3c',
+            annotation_text='Risk-Taking threshold (7.0)',
+            annotation_font_size=10
+        )
         fig.update_layout(
-            title='Risk Score Ranking (27 Tickers)',
-            xaxis_title='Composite Risk Score (0-10)',
-            height=700
+            **PLOT_LAYOUT,
+            title='Risk Score Ranking — 27 Tickers',
+            xaxis_title='Composite Risk Score (0–10)',
+            height=680
         )
         st.plotly_chart(fig, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-        # Risk component heatmap
-        st.subheader("Risk Component Breakdown")
-        components = [
-            'volatility_risk', 'sell_risk', 'drawdown_risk',
-            'correlation_risk', 'reversal_risk'
+        # Heatmap
+        st.markdown('<div class="vna-card">', unsafe_allow_html=True)
+        st.markdown(
+            '<div style="font-weight:600;margin-bottom:0.8rem;">'
+            'Component Breakdown</div>',
+            unsafe_allow_html=True
+        )
+        comps = [
+            'volatility_risk','sell_risk','drawdown_risk',
+            'correlation_risk','reversal_risk'
         ]
-        heatmap_df = df_risk.set_index('ticker')[
-            components
-        ].sort_values('volatility_risk', ascending=False)
-
+        hmap = df.set_index('ticker')[comps] \
+                 .sort_values('volatility_risk', ascending=False)
         fig2 = px.imshow(
-            heatmap_df,
+            hmap,
             color_continuous_scale='RdYlGn_r',
             aspect='auto',
-            title='Risk Components Heatmap',
-            labels=dict(color='Risk Level'),
+            labels=dict(color='Risk'),
             zmin=0, zmax=10
         )
-        fig2.update_layout(height=600)
+        fig2.update_layout(**PLOT_LAYOUT, height=550)
         st.plotly_chart(fig2, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
         # Full table
-        st.subheader("Full Risk Scores")
-        st.dataframe(df_risk, use_container_width=True)
+        st.markdown('<div class="vna-card">', unsafe_allow_html=True)
+        st.markdown(
+            '<div style="font-weight:600;margin-bottom:0.8rem;">'
+            'Full Risk Scores</div>',
+            unsafe_allow_html=True
+        )
+        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.markdown('</div>', unsafe_allow_html=True)
