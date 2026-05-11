@@ -219,7 +219,9 @@ async def predict_price(request: PredictionRequest):
     last_row = df[df['ticker'] == ticker].sort_values(
         'date'
     ).iloc[-1]
-    current_price = float(last_row['close'])
+    current_price = float(last_row['close']) 
+    if current_price < 1000:
+        current_price = current_price * 1000
     last_date     = str(last_row['date'].date())
 
     # Decode predictions
