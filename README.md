@@ -8,23 +8,23 @@ Stock markets are inherently volatile and driven by dozens of overlapping signal
 
 ## Tasks Overview
 
-| Task | Subtask | Description | Weight |
-|------|---------|-------------|--------|
-| **Task 1** — Nasdaq price prediction | 1.1 | Multi-feature extension (OHLCV) | 5% |
-| | 1.2 | k-th day forecast | 5% |
-| | 1.3 | k consecutive days forecast | 5% |
-| **Task 2** — Vietnam price prediction | 2.1 | Multi-feature extension | 5% |
-| | 2.2 | k-th day forecast | 5% |
-| | 2.3 | k consecutive days forecast | 5% |
-| **Task 3** — Vietnam trading signals | 3.1 | Buying signal identification | 10% |
-| | 3.2 | Selling signal identification | 10% |
-| **Task 4** — Vietnam portfolio management | 4.1 | Portfolio composition | 10% |
-| | 4.2 | Risk management | 10% |
-| | 4.3 | Portfolio optimisation | 10% |
-| **Task 5** — Deployment (extra credit) | 5.1 | Model deployment (FastAPI) | 5% |
-| | 5.2 | Model as SaaS (Streamlit) | 5% |
-| | 5.3 | AI engineering workflow (Airflow + MongoDB) | 5% |
-| **Task 6** — Report & repository | 6.1–6.3 | Report, GitHub repo, README | 20% |
+| Task | Subtask | Description 
+|------|---------|-------------
+| **Task 1** — Nasdaq price prediction | 1.1 | Multi-feature extension (OHLCV)
+| | 1.2 | k-th day forecast 
+| | 1.3 | k consecutive days forecast 
+| **Task 2** — Vietnam price prediction | 2.1 | Multi-feature extension 
+| | 2.2 | k-th day forecast 
+| | 2.3 | k consecutive days forecast 
+| **Task 3** — Vietnam trading signals | 3.1 | Buying signal identification
+| | 3.2 | Selling signal identification
+| **Task 4** — Vietnam portfolio management | 4.1 | Portfolio composition
+| | 4.2 | Risk management
+| | 4.3 | Portfolio optimisation 
+| **Task 5** — Deployment (extra credit) | 5.1 | Model deployment (FastAPI) 
+| | 5.2 | Model as SaaS (Streamlit) 
+| | 5.3 | AI engineering workflow (Airflow + MongoDB) 
+| **Task 6** — Report & repository | 6.1–6.3 | Report, GitHub repo, README 
 
 ---
 
