@@ -45,78 +45,119 @@ TICKERS = [
 
 def ingest_ohlcv(**context):
     """
-    Task 1: Fetch latest OHLCV data from vnstock API.
-    Stores raw data in MongoDB raw_ohlcv collection.
-    Only fetches yesterday's data (incremental).
+    Task 1: Fetch latest OHLCV from Yahoo Finance (yfinance).
+    Vietnamese tickers use .VN suffix on Yahoo Finance.
+    Falls back to master CSV if API unavailable.
     """
     from pymongo import MongoClient
     import pandas as pd
+    import yfinance as yf
+    from datetime import datetime, timedelta
 
-    run_date = context['ds']        # YYYY-MM-DD
-    logger.info(f"Ingesting OHLCV for {run_date}")
+    run_date  = context['ds']
+    logger.info(f"Ingesting OHLCV via Yahoo Finance for {run_date}")
 
     client = MongoClient("mongodb://localhost:27017")
     db     = client['vnalpha']
+
+    end_date   = datetime.today().strftime('%Y-%m-%d')
+    start_date = (datetime.today() - timedelta(days=7)).strftime('%Y-%m-%d')
 
     inserted = 0
     failed   = []
 
     for ticker in TICKERS:
         try:
-            # Fetch from vnstock (pseudo-code — replace with
-            # actual vnstock API call)
-            # from vnstock import stock_historical_data
-            # df = stock_historical_data(
-            #     ticker, run_date, run_date, '1D'
-            # )
-
-            # For now: check if data exists in master CSV
-            master_path = (
-                ROOT / 'notebooks' / 'data' / 'vietnam'
-                / 'task4_master_features.csv'
+            yf_ticker = f"{ticker}.VN"
+            df = yf.download(
+                yf_ticker,
+                start      = start_date,
+                end        = end_date,
+                progress   = False,
+                auto_adjust= True
             )
-            if not master_path.exists():
-                logger.warning(f"Master CSV not found")
+
+            if df.empty:
+                logger.warning(f"{ticker}: no Yahoo data — fallback to CSV")
+                failed.append(ticker)
                 continue
 
-            df = pd.read_csv(master_path)
-            df = df[df['ticker'] == ticker].copy()
-            df['date'] = pd.to_datetime(df['date'])
-
-            # Get latest row
+            df = df.reset_index()
+            df.columns = [c[0] if isinstance(c, tuple) else c
+                          for c in df.columns]
+            df.columns = [c.lower() for c in df.columns]
             latest = df.sort_values('date').iloc[-1]
 
             doc = {
-                "ticker"      : ticker,
-                "date"        : latest['date'].to_pydatetime(),
-                "open"        : float(latest.get('open', 0)),
-                "high"        : float(latest.get('high', 0)),
-                "low"         : float(latest.get('low',  0)),
-                "close"       : float(latest['close']),
-                "volume"      : int(latest.get('volume', 0)),
-                "ingested_at" : datetime.utcnow()
+                "ticker"     : ticker,
+                "date"       : pd.Timestamp(latest['date']).to_pydatetime()
+                               .replace(hour=0, minute=0, second=0,
+                                        microsecond=0, tzinfo=None),
+                "open"       : float(latest.get('open',  0)),
+                "high"       : float(latest.get('high',  0)),
+                "low"        : float(latest.get('low',   0)),
+                "close"      : float(latest.get('close', 0)),
+                "volume"     : int(latest.get('volume',  0)),
+                "source"     : "yahoo_finance",
+                "ingested_at": datetime.utcnow()
             }
+
+            if doc['close'] <= 0:
+                failed.append(ticker)
+                continue
 
             db.raw_ohlcv.update_one(
                 {"ticker": ticker, "date": doc["date"]},
-                {"$set": doc},
-                upsert=True
+                {"$set": doc}, upsert=True
             )
             inserted += 1
+            logger.info(f"  ✓ {ticker}: close={doc['close']:.2f}")
 
         except Exception as e:
-            logger.error(f"Failed {ticker}: {e}")
+            logger.error(f"  ✗ {ticker}: {e}")
             failed.append(ticker)
 
-    logger.info(f"Ingested {inserted}/{len(TICKERS)} tickers")
+    # CSV fallback for failed tickers
     if failed:
-        logger.warning(f"Failed tickers: {failed}")
+        logger.warning(f"CSV fallback for: {failed}")
+        master_path = (ROOT / 'notebooks' / 'data' / 'vietnam'
+                       / 'task4_master_features.csv')
+        if master_path.exists():
+            df_m = pd.read_csv(master_path)
+            df_m['date'] = pd.to_datetime(df_m['date'])
+            for ticker in failed:
+                try:
+                    t_df   = df_m[df_m['ticker']==ticker].sort_values('date')
+                    if len(t_df) == 0: continue
+                    latest = t_df.iloc[-1]
+                    doc = {
+                        "ticker"     : ticker,
+                        "date"       : latest['date'].to_pydatetime(),
+                        "open"       : float(latest.get('open',  0)),
+                        "high"       : float(latest.get('high',  0)),
+                        "low"        : float(latest.get('low',   0)),
+                        "close"      : float(latest['close']),
+                        "volume"     : int(latest.get('volume',  0)),
+                        "source"     : "csv_fallback",
+                        "ingested_at": datetime.utcnow()
+                    }
+                    db.raw_ohlcv.update_one(
+                        {"ticker": ticker, "date": doc["date"]},
+                        {"$set": doc}, upsert=True
+                    )
+                    inserted += 1
+                    logger.info(f"  ✓ {ticker}: CSV fallback ok")
+                except Exception as e:
+                    logger.error(f"  ✗ {ticker} CSV: {e}")
 
-    # Push to XCom for downstream tasks
-    context['ti'].xcom_push(
-        key='ingested_count', value=inserted
-    )
-    return {"inserted": inserted, "failed": failed}
+    logger.info(f"Ingested {inserted}/{len(TICKERS)} tickers")
+    context['ti'].xcom_push(key='ingested_count', value=inserted)
+    return {
+        "inserted"     : inserted,
+        "yahoo_finance": inserted - len(failed),
+        "csv_fallback" : len(failed),
+    }
+
 
 
 def compute_features(**context):
