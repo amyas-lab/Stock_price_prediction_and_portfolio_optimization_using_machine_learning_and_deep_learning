@@ -34,36 +34,40 @@ class PortfolioRequest(BaseModel):
 
 # ── Response Schemas ──────────────────────────────────────────
 class PricePredictionResponse(BaseModel):
-    ticker          : str
-    prediction_date : str
-    current_price   : float
-    predicted_returns: List[float] = Field(
-        description="Predicted log returns for next 5 days"
+    ticker            : str
+    prediction_date   : str
+    current_price     : float
+    predicted_returns : List[float] = Field(
+        description="Predicted log returns for next K days"
     )
-    predicted_prices : List[float] = Field(
-        description="Predicted prices for next 5 days"
+    predicted_prices  : List[float] = Field(
+        description="Predicted absolute prices for next K days"
     )
-    direction        : str = Field(
-        description="UP / DOWN / NEUTRAL"
+    direction         : str   = Field(description="UP / DOWN / NEUTRAL")
+    confidence        : float = Field(description="P(BUY) or P(SELL)")
+    model_used        : str
+    is_known_ticker   : bool  = Field(
+        default=True,
+        description="True = pre-computed (fast); False = live fetch"
     )
-    confidence       : float = Field(
-        description="Model confidence: P(BUY) or P(SELL)"
+    data_source       : str   = Field(
+        default="pre-computed",
+        description="pre-computed | live-yfinance"
     )
-    model_used       : str
 
 
 class SignalResponse(BaseModel):
     ticker          : str
     signal_date     : str
-    signal          : str = Field(
-        description="BUY / SELL / HOLD"
-    )
+    signal          : str   = Field(description="BUY / SELL / HOLD")
     p_buy           : float
     p_sell          : float
     p_hold          : float
     conviction      : float
     threshold_used  : float
     recommendation  : str
+    is_known_ticker : bool  = Field(default=True)
+    data_source     : str   = Field(default="pre-computed")
 
 
 class PortfolioStock(BaseModel):

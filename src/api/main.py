@@ -1,13 +1,19 @@
 # ── src/api/main.py ───────────────────────────────────────────
 """
 FastAPI application — Vietnam Stock Prediction API
+
 Endpoints:
-  GET  /health                        → API health check
-  POST /predict/price                 → MTL price prediction
-  POST /predict/signal                → XGBoost trading signal
-  GET  /portfolio/{profile}           → Portfolio composition
-  GET  /portfolio/scores/profitability→ Task 4.1 scores
-  GET  /portfolio/scores/risk         → Task 4.2 scores
+  GET  /health                         → API health check
+  GET  /tickers                        → List supported tickers
+  POST /predict/price                  → MTL price prediction
+                                         Branch 1: pre-computed (27 known, <1s)
+                                         Branch 2: live yfinance (any ticker, ~3-5s)
+  POST /predict/signal                 → Trading signal
+                                         Branch 1: pre-computed CSV
+                                         Branch 2: MTL classification head
+  GET  /portfolio/{profile}            → Portfolio composition
+  GET  /portfolio/scores/profitability → Task 4.1 scores
+  GET  /portfolio/scores/risk          → Task 4.2 scores
 """
 
 import numpy as np
@@ -16,65 +22,58 @@ import joblib
 import tensorflow as tf
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from contextlib         import asynccontextmanager
-from datetime           import datetime
-from pathlib            import Path
+from contextlib import asynccontextmanager
+from datetime   import datetime
+from pathlib    import Path
 import warnings
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 
-# Local imports
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.api.config import (
     MODEL_PATHS, DATA_PATHS, API_CONFIG,
-    SUPPORTED_TICKERS_T3, SUPPORTED_TICKERS_T4
+    SUPPORTED_TICKERS_T3, SUPPORTED_TICKERS_T4, KNOWN_TICKERS,
 )
 from src.api.models import (
     PredictionRequest, SignalRequest, PortfolioRequest,
     PricePredictionResponse, SignalResponse,
     PortfolioResponse, PortfolioStock,
     ProfitabilityResponse, ProfitabilityScore,
-    RiskResponse, RiskScore, HealthResponse
+    RiskResponse, RiskScore, HealthResponse,
 )
+from src.api.feature_pipeline import build_live_features
 
-# ── Global model store ────────────────────────────────────────
-MODELS = {}
-DATA   = {}
+# ── Global stores ─────────────────────────────────────────────
+MODELS: dict = {}
+DATA:   dict = {}
 
 
 # ── Startup / Shutdown ────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Load models on startup, cleanup on shutdown."""
-    print("🚀 Loading models...")
+    print("🚀 Loading models and data...")
 
-    # Load Keras models
-    try:
-        MODELS['mtl_t3'] = tf.keras.models.load_model(
-            str(MODEL_PATHS['mtl_production']),
-            compile=False
-        )
-        print(f"  ✓ MTL T3 model loaded")
-    except Exception as e:
-        print(f"  ✗ MTL T3 failed: {e}")
-        MODELS['mtl_t3'] = None
+    # Keras models
+    for key, path in [
+        ("mtl_t3", MODEL_PATHS["mtl_production"]),
+        ("mtl_t4", MODEL_PATHS["mtl_t4"]),
+    ]:
+        try:
+            MODELS[key] = tf.keras.models.load_model(
+                str(path), compile=False
+            )
+            print(f"  ✓ {key} loaded  {MODELS[key].input_shape}")
+        except Exception as e:
+            print(f"  ✗ {key} failed: {e}")
+            MODELS[key] = None
 
-    try:
-        MODELS['mtl_t4'] = tf.keras.models.load_model(
-            str(MODEL_PATHS['mtl_t4']),
-            compile=False
-        )
-        print(f"  ✓ MTL T4 model loaded")
-    except Exception as e:
-        print(f"  ✗ MTL T4 failed: {e}")
-        MODELS['mtl_t4'] = None
-
-    # Load sklearn/xgboost models
-    for key in ['xgb_signal_t3', 'xgb_signal_t4',
-                'feature_scaler', 'target_scaler',
-                'task4_scaler', 'ticker_encoder',
-                'sr_scaler']:
+    # sklearn / XGBoost artifacts
+    for key in [
+        "xgb_signal_t3", "xgb_signal_t4",
+        "feature_scaler", "target_scaler",
+        "task4_scaler", "ticker_encoder", "sr_scaler",
+    ]:
         try:
             MODELS[key] = joblib.load(MODEL_PATHS[key])
             print(f"  ✓ {key} loaded")
@@ -82,38 +81,33 @@ async def lifespan(app: FastAPI):
             print(f"  ✗ {key} failed: {e}")
             MODELS[key] = None
 
-    # Load precomputed data
+    # Pre-computed CSVs
     for key, path in DATA_PATHS.items():
         try:
             DATA[key] = pd.read_csv(path)
-            if 'date' in DATA[key].columns:
-                DATA[key]['date'] = pd.to_datetime(
-                    DATA[key]['date']
-                )
-            print(f"  ✓ {key} data loaded "
-                  f"({len(DATA[key]):,} rows)")
+            if "date" in DATA[key].columns:
+                DATA[key]["date"] = pd.to_datetime(DATA[key]["date"])
+            print(f"  ✓ {key}  ({len(DATA[key]):,} rows)")
         except Exception as e:
-            print(f"  ✗ {key} data failed: {e}")
+            print(f"  ✗ {key} failed: {e}")
             DATA[key] = None
 
     print("✓ API ready!")
     yield
 
-    # Cleanup
     MODELS.clear()
     DATA.clear()
     print("API shutdown complete.")
 
 
-# ── App initialization ────────────────────────────────────────
+# ── App ───────────────────────────────────────────────────────
 app = FastAPI(
-    title       = API_CONFIG['title'],
-    description = API_CONFIG['description'],
-    version     = API_CONFIG['version'],
-    lifespan    = lifespan
+    title       = API_CONFIG["title"],
+    description = API_CONFIG["description"],
+    version     = API_CONFIG["version"],
+    lifespan    = lifespan,
 )
 
-# CORS — allow all origins for development
 app.add_middleware(
     CORSMiddleware,
     allow_origins     = ["*"],
@@ -123,63 +117,92 @@ app.add_middleware(
 )
 
 
-# ── Helper Functions ──────────────────────────────────────────
-def get_latest_features(ticker: str,
-                          n_days: int = 20) -> np.ndarray:
-    """
-    Extract latest n_days of features for a ticker
-    from precomputed master features.
-    Returns shape (1, n_days, n_features).
-    """
-    if DATA['master_features'] is None:
+# ── Shared helpers ────────────────────────────────────────────
+
+def _get_precomputed_features(ticker: str,
+                               n_days: int = 20) -> np.ndarray:
+    """Return feature array (1, n_days, 25) from pre-computed master CSV."""
+    if DATA["master_features"] is None:
+        raise HTTPException(503, "Master features data not available")
+
+    df   = DATA["master_features"]
+    rows = df[df["ticker"] == ticker].sort_values("date")
+
+    if len(rows) < n_days:
         raise HTTPException(
-            status_code=503,
-            detail="Master features data not available"
+            400,
+            f"Insufficient pre-computed data for {ticker}: "
+            f"need {n_days} rows, have {len(rows)}",
         )
 
-    df = DATA['master_features']
-    ticker_df = df[
-        df['ticker'] == ticker
-    ].sort_values('date').tail(n_days + 10)
+    exclude   = {
+        "date", "ticker", "open", "high", "low", "close",
+        "forward_return_5d", "log_return_1d",
+        "target_class_t4", "sector",
+    }
+    feat_cols = [c for c in rows.columns if c not in exclude]
+    X         = rows[feat_cols].values[-n_days:]
+    return X.reshape(1, n_days, len(feat_cols))
 
-    if len(ticker_df) < n_days:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Insufficient data for {ticker}. "
-                   f"Need {n_days} days, got {len(ticker_df)}"
-        )
 
-    # Feature columns (exclude non-feature cols)
-    exclude_cols = [
-        'date', 'ticker', 'open', 'high', 'low', 'close',
-        'forward_return_5d', 'log_return_1d',
-        'target_class_t4', 'sector'
-    ]
-    feature_cols = [
-        c for c in ticker_df.columns
-        if c not in exclude_cols
-    ]
+def _decode_prediction(reg_pred, cls_pred, current_price: float):
+    """Unpack MTL model output into returns, prices, direction, confidence."""
+    raw          = reg_pred[0]
+    pred_returns = raw.tolist() if hasattr(raw, "tolist") else [float(raw)]
 
-    feat_arr = ticker_df[feature_cols].values[-n_days:]
-    return feat_arr.reshape(1, n_days, len(feature_cols))
+    pred_prices: list = []
+    price = current_price
+    for r in pred_returns:
+        price = price * np.exp(float(r))
+        pred_prices.append(round(price, 2))
+
+    # class order: [0]=SELL  [1]=HOLD  [2]=BUY
+    p_sell = float(cls_pred[0, 0])
+    p_hold = float(cls_pred[0, 1])
+    p_buy  = float(cls_pred[0, 2])
+
+    if p_buy > p_sell and p_buy > p_hold:
+        direction, confidence = "UP",      p_buy
+    elif p_sell > p_buy and p_sell > p_hold:
+        direction, confidence = "DOWN",    p_sell
+    else:
+        direction, confidence = "NEUTRAL", p_hold
+
+    return (
+        [round(r, 6) for r in pred_returns],
+        pred_prices,
+        direction,
+        round(confidence, 4),
+        round(p_buy,  4),
+        round(p_sell, 4),
+        round(p_hold, 4),
+    )
 
 
 # ── Endpoints ─────────────────────────────────────────────────
 
-@app.get("/health",
-         response_model=HealthResponse,
-         tags=["System"])
+@app.get("/health", response_model=HealthResponse, tags=["System"])
 async def health_check():
-    """API health check — shows loaded models."""
     return HealthResponse(
-        status  = "healthy",
-        models_loaded = {
-            k: v is not None for k, v in MODELS.items()
-        },
+        status               = "healthy",
+        models_loaded        = {k: v is not None for k, v in MODELS.items()},
         supported_tickers_t3 = SUPPORTED_TICKERS_T3,
         supported_tickers_t4 = SUPPORTED_TICKERS_T4,
-        version = API_CONFIG['version']
+        version              = API_CONFIG["version"],
     )
+
+
+@app.get("/tickers", tags=["System"])
+async def list_tickers():
+    """Known tickers (fast path) + hint about free-text input."""
+    return {
+        "known_tickers": SUPPORTED_TICKERS_T4,
+        "note": (
+            "Any HOSE ticker (e.g. SSI, VPB) is accepted. "
+            "Known tickers use pre-computed features (<1 s); "
+            "unknown tickers fetch live data (~3-5 s)."
+        ),
+    }
 
 
 @app.post("/predict/price",
@@ -187,79 +210,70 @@ async def health_check():
           tags=["Prediction"])
 async def predict_price(request: PredictionRequest):
     """
-    Predict 5-day price trajectory for a ticker.
-    Uses MTL Seq2Seq model from Task 2/4.
+    Predict next-step price trajectory.
+
+    Branch 1 (27 known tickers): reads pre-computed master_features → <1 s.
+    Branch 2 (any other ticker): fetches live OHLCV from yfinance,
+      computes 25 indicators on-the-fly, scales → ~3-5 s.
     """
-    ticker = request.ticker.upper()
+    ticker   = request.ticker.upper()
+    n_days   = request.n_days_back
+    is_known = ticker in KNOWN_TICKERS
 
-    # Validate ticker
-    if ticker not in SUPPORTED_TICKERS_T4:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Ticker {ticker} not supported. "
-                   f"Supported: {SUPPORTED_TICKERS_T4}"
-        )
-
-    # Select model
-    model = MODELS.get('mtl_t4') or MODELS.get('mtl_t3')
+    model = MODELS.get("mtl_t4") or MODELS.get("mtl_t3")
     if model is None:
-        raise HTTPException(
-            status_code=503,
-            detail="Prediction model not available"
-        )
+        raise HTTPException(503, "Prediction model not available")
 
-    # Get features
-    X = get_latest_features(ticker, request.n_days_back)
+    # ── Branch 1: pre-computed ────────────────────────────────
+    if is_known:
+        X = _get_precomputed_features(ticker, n_days)
 
-    # Predict
-    reg_pred, cls_pred = model.predict(X, verbose=0)
+        df       = DATA["master_features"]
+        last_row = df[df["ticker"] == ticker].sort_values("date").iloc[-1]
+        current_price = float(last_row["close"])
+        if current_price < 1000:
+            current_price *= 1000
+        last_date   = str(last_row["date"].date())
+        data_source = "pre-computed"
+        model_label = "MTL_T4_Specialized"
 
-    # Get current price
-    df       = DATA['master_features']
-    last_row = df[df['ticker'] == ticker].sort_values(
-        'date'
-    ).iloc[-1]
-    current_price = float(last_row['close']) 
-    if current_price < 1000:
-        current_price = current_price * 1000
-    last_date     = str(last_row['date'].date())
-
-    # Decode predictions
-    pred_returns = reg_pred[0].tolist() \
-                   if len(reg_pred.shape) > 1 \
-                   else [float(reg_pred[0])]
-
-    # Predicted prices from log returns
-    pred_prices = []
-    price = current_price
-    for ret in pred_returns:
-        price = price * np.exp(ret)
-        pred_prices.append(round(float(price), 2))
-
-    # Direction from classification head
-    p_buy  = float(cls_pred[0, 2])
-    p_sell = float(cls_pred[0, 0])
-    p_hold = float(cls_pred[0, 1])
-
-    if p_buy > p_sell and p_buy > p_hold:
-        direction  = "UP"
-        confidence = p_buy
-    elif p_sell > p_buy and p_sell > p_hold:
-        direction  = "DOWN"
-        confidence = p_sell
+    # ── Branch 2: live fetch ──────────────────────────────────
     else:
-        direction  = "NEUTRAL"
-        confidence = p_hold
+        scaler = MODELS.get("task4_scaler")
+        if scaler is None:
+            raise HTTPException(503, "Feature scaler not available")
+        try:
+            X, raw_price, last_date = build_live_features(
+                ticker, scaler, n_days
+            )
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+        except Exception as exc:
+            raise HTTPException(
+                503, f"Live data fetch failed for '{ticker}': {exc}"
+            )
+        current_price = raw_price if raw_price >= 1000 else raw_price * 1000
+        data_source   = "live-yfinance"
+        model_label   = "MTL_T4_Live"
+
+    reg_pred, cls_pred = model.predict(X, verbose=0)
+    (pred_returns, pred_prices,
+     direction, confidence,
+     p_buy, p_sell, p_hold) = _decode_prediction(
+         reg_pred, cls_pred, current_price
+     )
 
     return PricePredictionResponse(
-        ticker           = ticker,
-        prediction_date  = last_date,
-        current_price    = current_price,
-        predicted_returns= [round(r, 6) for r in pred_returns],
-        predicted_prices = pred_prices,
-        direction        = direction,
-        confidence       = round(confidence, 4),
-        model_used       = "MTL_Seq2Seq_GRU_Attention"
+        ticker            = ticker,
+        prediction_date   = last_date,
+        current_price     = current_price,
+        predicted_returns = pred_returns,
+        predicted_prices  = pred_prices,
+        direction         = direction,
+        confidence        = confidence,
+        model_used        = model_label,
+        is_known_ticker   = is_known,
+        data_source       = data_source,
     )
 
 
@@ -268,80 +282,88 @@ async def predict_price(request: PredictionRequest):
           tags=["Signal"])
 async def predict_signal(request: SignalRequest):
     """
-    Generate BUY/SELL/HOLD trading signal for a ticker.
-    Uses XGBoost classifier from Task 3/4.
+    BUY / SELL / HOLD trading signal.
+
+    Branch 1 (27 known tickers): reads pre-computed signal CSV → instant.
+    Branch 2 (any other ticker): runs MTL classification head on live features.
     """
     ticker    = request.ticker.upper()
     threshold = request.threshold
+    is_known  = ticker in KNOWN_TICKERS
 
-    # Select model and feature set
-    if ticker in SUPPORTED_TICKERS_T3:
-        xgb_model = MODELS.get('xgb_signal_t3')
-    else:
-        xgb_model = MODELS.get('xgb_signal_t4')
+    p_buy = p_sell = p_hold = 1 / 3
+    sig_date    = str(datetime.today().date())
+    data_source = "pre-computed"
 
-    if xgb_model is None:
-        raise HTTPException(
-            status_code=503,
-            detail="Signal model not available"
-        )
-
-    # Get precomputed signals if available
-    if DATA.get('signals') is not None:
-        sig_df = DATA['signals']
-        ticker_sig = sig_df[
-            sig_df['ticker'] == ticker
-        ].sort_values('date')
-
+    # ── Branch 1 ──────────────────────────────────────────────
+    if is_known and DATA.get("signals") is not None:
+        sig_df     = DATA["signals"]
+        ticker_sig = sig_df[sig_df["ticker"] == ticker].sort_values("date")
         if len(ticker_sig) > 0:
-            last_sig   = ticker_sig.iloc[-1]
-            p_buy      = float(last_sig.get('p_buy', 0.33))
-            p_sell     = float(last_sig.get('p_sell', 0.33))
-            p_hold     = 1 - p_buy - p_sell
-            conviction = max(p_buy, p_sell)
-            sig_date   = str(last_sig['date'])[:10]
+            last     = ticker_sig.iloc[-1]
+            p_buy    = float(last.get("p_buy",  1 / 3))
+            p_sell   = float(last.get("p_sell", 1 / 3))
+            p_hold   = max(0.0, 1 - p_buy - p_sell)
+            sig_date = str(last["date"])[:10]
         else:
-            p_buy = p_sell = p_hold = 0.333
-            conviction = 0.333
-            sig_date = str(datetime.today().date())
-    else:
-        p_buy = p_sell = p_hold = 0.333
-        conviction = 0.333
-        sig_date = str(datetime.today().date())
+            is_known = False         # no CSV row → fall through to live
 
-    # Apply threshold
+    # ── Branch 2 ──────────────────────────────────────────────
+    if not is_known:
+        model  = MODELS.get("mtl_t4")
+        scaler = MODELS.get("task4_scaler")
+        if model is None or scaler is None:
+            raise HTTPException(503, "Model or scaler not available")
+        try:
+            X, _, sig_date = build_live_features(ticker, scaler)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+        except Exception as exc:
+            raise HTTPException(
+                503, f"Live data fetch failed for '{ticker}': {exc}"
+            )
+        _, cls_pred = model.predict(X, verbose=0)
+        p_sell = float(cls_pred[0, 0])
+        p_hold = float(cls_pred[0, 1])
+        p_buy  = float(cls_pred[0, 2])
+        data_source = "live-yfinance"
+
+    conviction = max(p_buy, p_sell)
+
     if p_buy >= threshold:
         signal = "BUY"
         recommendation = (
-            f"Strong BUY signal detected. "
+            f"Strong BUY signal. "
             f"P(BUY)={p_buy:.2%} ≥ threshold={threshold:.2%}. "
-            f"Consider entering a long position."
+            "Consider entering a long position."
         )
     elif p_sell >= threshold:
         signal = "SELL"
         recommendation = (
-            f"Strong SELL signal detected. "
+            f"Strong SELL signal. "
             f"P(SELL)={p_sell:.2%} ≥ threshold={threshold:.2%}. "
-            f"Consider reducing or exiting position."
+            "Consider reducing or exiting position."
         )
     else:
         signal = "HOLD"
         recommendation = (
             f"No high-conviction signal. "
             f"Max conviction={conviction:.2%} < threshold={threshold:.2%}. "
-            f"Stay flat or maintain current position."
+            "Stay flat or maintain current position."
         )
 
     return SignalResponse(
-        ticker         = ticker,
-        signal_date    = sig_date,
-        signal         = signal,
-        p_buy          = round(p_buy,  4),
-        p_sell         = round(p_sell, 4),
-        p_hold         = round(p_hold, 4),
-        conviction     = round(conviction, 4),
-        threshold_used = threshold,
-        recommendation = recommendation
+        ticker          = ticker,
+        signal_date     = sig_date,
+        signal          = signal,
+        p_buy           = round(p_buy,       4),
+        p_sell          = round(p_sell,      4),
+        p_hold          = round(p_hold,      4),
+        conviction      = round(conviction,  4),
+        threshold_used  = threshold,
+        recommendation  = recommendation,
+        is_known_ticker = ticker in KNOWN_TICKERS,
+        data_source     = data_source,
     )
 
 
@@ -349,63 +371,42 @@ async def predict_signal(request: SignalRequest):
          response_model=PortfolioResponse,
          tags=["Portfolio"])
 async def get_portfolio(profile: str):
-    """
-    Get portfolio composition for a given profile.
-    Profiles: risk_taking, prudent, equal_weight
-    """
-    valid_profiles = ['risk_taking', 'prudent', 'equal_weight']
-    if profile not in valid_profiles:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid profile. Choose: {valid_profiles}"
-        )
+    """Portfolio composition for risk_taking | prudent | equal_weight."""
+    valid = ["risk_taking", "prudent", "equal_weight"]
+    if profile not in valid:
+        raise HTTPException(400, f"Invalid profile. Choose: {valid}")
 
-    if DATA.get('portfolio') is None:
-        raise HTTPException(
-            status_code=503,
-            detail="Portfolio data not available"
-        )
+    if DATA.get("portfolio") is None:
+        raise HTTPException(503, "Portfolio data not available")
 
-    # Map profile names
     profile_map = {
-        'risk_taking' : 'Risk-Taking',
-        'prudent'     : 'Prudent',
-        'equal_weight': 'Equal-Weight'
+        "risk_taking" : "Risk-Taking",
+        "prudent"     : "Prudent",
+        "equal_weight": "Equal-Weight",
     }
-
-    port_df = DATA['portfolio']
-    filtered = port_df[
-        port_df['profile'] == profile_map[profile]
+    filtered = DATA["portfolio"][
+        DATA["portfolio"]["profile"] == profile_map[profile]
     ]
-
-    if len(filtered) == 0:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No data found for profile: {profile}"
-        )
+    if filtered.empty:
+        raise HTTPException(404, f"No data for profile: {profile}")
 
     stocks = [
         PortfolioStock(
-            ticker     = row['ticker'],
-            sector     = row.get('sector', 'Unknown'),
-            weight     = round(float(row['weight']), 4),
-            risk_score = round(float(row.get(
-                'risk_score', 0
-            )), 2),
-            risk_flag  = str(row.get('risk_flag', 'N/A'))
+            ticker     = row["ticker"],
+            sector     = row.get("sector", "Unknown"),
+            weight     = round(float(row["weight"]), 4),
+            risk_score = round(float(row.get("risk_score", 0)), 2),
+            risk_flag  = str(row.get("risk_flag", "N/A")),
         )
         for _, row in filtered.iterrows()
     ]
 
-    # Approximate performance metrics
-    perf_map = {
-        'Risk-Taking' : (0.3573, 0.2952, 0.8596),
-        'Prudent'     : (0.1644, 0.2480, 0.4550),
-        'Equal-Weight': (0.5393, 0.2477, 1.3969),
+    perf = {
+        "Risk-Taking" : (0.3573, 0.2952, 0.8596),
+        "Prudent"     : (0.1644, 0.2480, 0.4550),
+        "Equal-Weight": (0.5393, 0.2477, 1.3969),
     }
-    ret, vol, sr = perf_map.get(
-        profile_map[profile], (0, 0, 0)
-    )
+    ret, vol, sr = perf[profile_map[profile]]
 
     return PortfolioResponse(
         profile         = profile,
@@ -413,7 +414,7 @@ async def get_portfolio(profile: str):
         expected_return = round(ret, 4),
         expected_vol    = round(vol, 4),
         sharpe_ratio    = round(sr,  4),
-        total_stocks    = len(stocks)
+        total_stocks    = len(stocks),
     )
 
 
@@ -421,32 +422,29 @@ async def get_portfolio(profile: str):
          response_model=ProfitabilityResponse,
          tags=["Portfolio"])
 async def get_profitability_scores():
-    """Get Task 4.1 profitability scores for all tickers."""
-    if DATA.get('profitability') is None:
-        raise HTTPException(
-            status_code=503,
-            detail="Profitability data not available"
-        )
+    if DATA.get("profitability") is None:
+        raise HTTPException(503, "Profitability data not available")
 
-    df = DATA['profitability']
-    scores = []
-    for rank, (_, row) in enumerate(df.iterrows(), start=1):
-        scores.append(ProfitabilityScore(
+    scores = [
+        ProfitabilityScore(
             rank            = rank,
-            ticker          = str(row.get('ticker', '')),
-            sector          = str(row.get('sector', 'Unknown')),
-            mtl_score       = round(float(row.get('f1_mtl',    0)), 4),
-            tech_score      = round(float(row.get('f2_tech',   0)), 4),
-            signal_score    = round(float(row.get('f3_signal', 0)), 4),
-            sharpe_score    = round(float(row.get('f4_sharpe', 0)), 4),
-            trend_score     = round(float(row.get('f5_trend',  0)), 4),
-            composite_score = round(float(row.get('composite', 0)), 4),
-        ))
-
+            ticker          = str(row.get("ticker", "")),
+            sector          = str(row.get("sector", "Unknown")),
+            mtl_score       = round(float(row.get("f1_mtl",    0)), 4),
+            tech_score      = round(float(row.get("f2_tech",   0)), 4),
+            signal_score    = round(float(row.get("f3_signal", 0)), 4),
+            sharpe_score    = round(float(row.get("f4_sharpe", 0)), 4),
+            trend_score     = round(float(row.get("f5_trend",  0)), 4),
+            composite_score = round(float(row.get("composite", 0)), 4),
+        )
+        for rank, (_, row) in enumerate(
+            DATA["profitability"].iterrows(), start=1
+        )
+    ]
     return ProfitabilityResponse(
         scores          = scores,
         evaluation_date = str(datetime.today().date()),
-        total_tickers   = len(scores)
+        total_tickers   = len(scores),
     )
 
 
@@ -454,32 +452,21 @@ async def get_profitability_scores():
          response_model=RiskResponse,
          tags=["Portfolio"])
 async def get_risk_scores():
-    """Get Task 4.2 risk scores for all tickers."""
-    if DATA.get('risk_scores') is None:
-        raise HTTPException(
-            status_code=503,
-            detail="Risk scores data not available"
-        )
+    if DATA.get("risk_scores") is None:
+        raise HTTPException(503, "Risk scores data not available")
 
-    df = DATA['risk_scores']
     scores = [
         RiskScore(
-            ticker           = str(row.get('ticker', '')),
-            sector           = str(row.get('sector', 'Unknown')),
-            volatility_risk  = round(float(row.get('r1_vol',      0)), 2),
-            sell_risk        = round(float(row.get('r2_sell',     0)), 2),
-            drawdown_risk    = round(float(row.get('r3_drawdown', 0)), 2),
-            correlation_risk = round(float(row.get('r4_corr',     0)), 2),
-            reversal_risk    = round(float(row.get('r5_reversal', 0)), 2),
-            composite_risk   = round(float(row.get(
-                'final_risk_score', 0
-            )), 2),
-            risk_flag        = str(row.get('risk_flag', 'N/A'))
+            ticker           = str(row.get("ticker", "")),
+            sector           = str(row.get("sector", "Unknown")),
+            volatility_risk  = round(float(row.get("r1_vol",           0)), 2),
+            sell_risk        = round(float(row.get("r2_sell",          0)), 2),
+            drawdown_risk    = round(float(row.get("r3_drawdown",      0)), 2),
+            correlation_risk = round(float(row.get("r4_corr",         0)), 2),
+            reversal_risk    = round(float(row.get("r5_reversal",      0)), 2),
+            composite_risk   = round(float(row.get("final_risk_score", 0)), 2),
+            risk_flag        = str(row.get("risk_flag", "N/A")),
         )
-        for _, row in df.iterrows()
+        for _, row in DATA["risk_scores"].iterrows()
     ]
-
-    return RiskResponse(
-        scores        = scores,
-        total_tickers = len(scores)
-    )
+    return RiskResponse(scores=scores, total_tickers=len(scores))

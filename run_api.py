@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
 Run the FastAPI server.
-Usage: python run_api.py
+Usage:
+  Local (venv):  venv/bin/python run_api.py
+  Activated env: python run_api.py
 """
 import uvicorn
 import sys

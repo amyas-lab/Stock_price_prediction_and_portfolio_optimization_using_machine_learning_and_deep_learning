@@ -65,3 +65,6 @@ SUPPORTED_TICKERS_T4 = [
     'HDB', 'TPB', 'SHB', 'PDR', 'KDH', 'DXG', 'GAS',
     'HSG', 'PNJ', 'SAB', 'CMG', 'ELC', 'SGT'
 ]
+
+# Set of tickers with pre-computed features (Branch 1 — fast path)
+KNOWN_TICKERS = set(SUPPORTED_TICKERS_T4)
