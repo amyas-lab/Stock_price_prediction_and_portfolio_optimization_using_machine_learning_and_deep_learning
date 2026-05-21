@@ -1,0 +1,9 @@
+*.pkl filter=lfs diff=lfs merge=lfs -text
+notebooks/data/vietnam/task4_master_features.csv filter=lfs diff=lfs merge=lfs -text
+*.keras filter=lfs diff=lfs merge=lfs -text
+notebooks/data/vietnam/df_f.csv filter=lfs diff=lfs merge=lfs -text
+notebooks/data/vietnam/vn_stocks_master_features.csv filter=lfs diff=lfs merge=lfs -text
+notebooks/3-vietnam_trading_signal_identification.ipynb filter=lfs diff=lfs merge=lfs -text
+notebooks/data/**/*.csv filter=lfs diff=lfs merge=lfs -text
+notebooks/data/nasdaq/csv/*.csv filter=lfs diff=lfs merge=lfs -text
+notebooks/data/vietnam/df_xgb_t4.csv filter=lfs diff=lfs merge=lfs -text
