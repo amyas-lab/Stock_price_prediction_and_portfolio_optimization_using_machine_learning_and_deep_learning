@@ -145,8 +145,14 @@ def _get_precomputed_features(ticker: str,
     return X.reshape(1, n_days, len(feat_cols))
 
 
-def _decode_prediction(reg_pred, cls_pred, current_price: float):
+def _decode_prediction(reg_pred, cls_pred, current_price: float, target_scaler=None):
     """Unpack MTL model output into returns, prices, direction, confidence."""
+    if target_scaler is not None:
+        try:
+            reg_pred = target_scaler.inverse_transform(reg_pred)
+        except Exception as e:
+            print(f"  ⚠ target_scaler.inverse_transform failed ({e}), using raw output")
+
     raw          = reg_pred[0]
     pred_returns = raw.tolist() if hasattr(raw, "tolist") else [float(raw)]
 
@@ -260,7 +266,8 @@ async def predict_price(request: PredictionRequest):
     (pred_returns, pred_prices,
      direction, confidence,
      p_buy, p_sell, p_hold) = _decode_prediction(
-         reg_pred, cls_pred, current_price
+         reg_pred, cls_pred, current_price,
+         target_scaler=MODELS.get("target_scaler"),
      )
 
     return PricePredictionResponse(
