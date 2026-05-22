@@ -1,10 +1,11 @@
 import { NavLink } from 'react-router-dom'
-import { SunPlantIcon, TrendUpIcon, PieIcon } from './Icons.jsx'
+import { SunPlantIcon, TrendUpIcon, PieIcon, LeafIcon } from './Icons.jsx'
 
 const links = [
   { to: '/',          label: 'Trang chủ',       Icon: SunPlantIcon },
   { to: '/predict',   label: 'Dự đoán giá',     Icon: TrendUpIcon  },
   { to: '/portfolio', label: 'Tối ưu danh mục', Icon: PieIcon      },
+  { to: '/model',     label: 'Công nghệ',        Icon: LeafIcon     },
 ]
 
 export default function Navbar() {

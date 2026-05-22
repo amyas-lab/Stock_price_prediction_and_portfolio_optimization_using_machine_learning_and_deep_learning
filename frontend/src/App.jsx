@@ -3,6 +3,7 @@ import Navbar    from './components/Navbar.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import PredictPrice from './pages/PredictPrice.jsx'
 import Portfolio from './pages/Portfolio.jsx'
+import ModelInsights from './pages/ModelInsights.jsx'
 
 export default function App() {
   return (
@@ -13,6 +14,7 @@ export default function App() {
           <Route path="/"          element={<Dashboard />} />
           <Route path="/predict"   element={<PredictPrice />} />
           <Route path="/portfolio" element={<Portfolio />} />
+          <Route path="/model"     element={<ModelInsights />} />
         </Routes>
       </main>
       <footer className="footer">
