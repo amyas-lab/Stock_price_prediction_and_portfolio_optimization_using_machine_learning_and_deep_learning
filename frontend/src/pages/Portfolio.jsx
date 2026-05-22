@@ -84,8 +84,8 @@ export default function Portfolio() {
     const rsk  = riskData?.scores?.find(x => x.ticker === ticker)
     return {
       ticker,
-      loi_nhuan: prof ? +(prof.profitability_score * 100).toFixed(1) : +(s.weight * 120).toFixed(1),
-      rui_ro:    rsk  ? +(rsk.risk_score * 100).toFixed(1)           : +(s.risk_score * 100).toFixed(1),
+      loi_nhuan: prof ? +(prof.composite_score * 100).toFixed(1) : +(s.weight * 120).toFixed(1),
+      rui_ro:    rsk  ? +(rsk.composite_risk * 100).toFixed(1)   : +(s.risk_score * 100).toFixed(1),
     }
   }) ?? []
 
@@ -168,35 +168,39 @@ export default function Portfolio() {
             <div className="card">
               <div className="card-title">Quản lý tài sản</div>
               <div className="asset-list-scroll" style={{ marginTop: 12 }}>
-                {data.stocks.map((s, i) => (
-                  <div key={s.ticker} className="asset-card">
-                    <div className="asset-card-header">
-                      <div className="asset-dot" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
-                      <div>
-                        <div className="asset-ticker">{s.ticker}</div>
-                        <div className="asset-name">{TICKER_NAMES[s.ticker] || s.sector}</div>
-                      </div>
-                    </div>
-                    <div className="asset-fields">
-                      <div>
-                        <div className="asset-field-label">Phân bổ (%)</div>
-                        <div className="asset-field-value">{(s.weight * 100).toFixed(0)}</div>
-                      </div>
-                      <div>
-                        <div className="asset-field-label">Lợi nhuận (%)</div>
-                        <div className="asset-field-value" style={{ color: 'var(--green)' }}>
-                          {barData[i]?.loi_nhuan ?? '—'}
+                {data.stocks.map((s, i) => {
+                  const prof = profData?.scores?.find(x => x.ticker === s.ticker)
+                  const rsk  = riskData?.scores?.find(x => x.ticker === s.ticker)
+                  return (
+                    <div key={s.ticker} className="asset-card">
+                      <div className="asset-card-header">
+                        <div className="asset-dot" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                        <div>
+                          <div className="asset-ticker">{s.ticker}</div>
+                          <div className="asset-name">{TICKER_NAMES[s.ticker] || s.sector}</div>
                         </div>
                       </div>
-                      <div>
-                        <div className="asset-field-label">Rủi ro (%)</div>
-                        <div className="asset-field-value" style={{ color: 'var(--gold-dark)' }}>
-                          {(s.risk_score * 100).toFixed(0)}
+                      <div className="asset-fields">
+                        <div>
+                          <div className="asset-field-label">Phân bổ</div>
+                          <div className="asset-field-value">{(s.weight * 100).toFixed(0)}%</div>
+                        </div>
+                        <div>
+                          <div className="asset-field-label">Lợi nhuận</div>
+                          <div className="asset-field-value" style={{ color: 'var(--green)' }}>
+                            {prof ? (prof.composite_score * 100).toFixed(1) + '%' : '—'}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="asset-field-label">Rủi ro</div>
+                          <div className="asset-field-value" style={{ color: 'var(--gold-dark)' }}>
+                            {rsk ? (rsk.composite_risk * 100).toFixed(1) + '%' : (s.risk_score * 100).toFixed(0) + '%'}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
                 <button className="add-asset-btn">+ Thêm tài sản</button>
               </div>
             </div>
