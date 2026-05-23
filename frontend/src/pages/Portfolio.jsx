@@ -77,15 +77,17 @@ export default function Portfolio() {
 
   const pieData = data?.stocks?.map(s => ({ name: s.ticker, value: s.weight })) ?? []
 
-  // Bar chart: profitability and risk per stock in portfolio
+  // Bar chart: profitability rank (0–100) vs risk score normalised to same 0–100 scale
+  // composite_score is a percentile rank in [0,1] → multiply by 100
+  // composite_risk (= final_risk_score) is on a 0–10 scale → multiply by 10 to reach 0–100
   const barData = data?.stocks?.map(s => {
     const ticker = s.ticker
     const prof = profData?.scores?.find(x => x.ticker === ticker)
     const rsk  = riskData?.scores?.find(x => x.ticker === ticker)
     return {
       ticker,
-      loi_nhuan: prof ? +(prof.composite_score * 100).toFixed(1) : +(s.weight * 120).toFixed(1),
-      rui_ro:    rsk  ? +(rsk.composite_risk * 100).toFixed(1)   : +(s.risk_score * 100).toFixed(1),
+      diem_ln: prof ? +(prof.composite_score * 100).toFixed(1) : null,
+      diem_rr: rsk  ? +(rsk.composite_risk * 10).toFixed(1)    : null,
     }
   }) ?? []
 
@@ -186,15 +188,15 @@ export default function Portfolio() {
                           <div className="asset-field-value">{(s.weight * 100).toFixed(0)}%</div>
                         </div>
                         <div>
-                          <div className="asset-field-label">Lợi nhuận</div>
+                          <div className="asset-field-label">Điểm LN</div>
                           <div className="asset-field-value" style={{ color: 'var(--green)' }}>
-                            {prof ? (prof.composite_score * 100).toFixed(1) + '%' : '—'}
+                            {prof ? (prof.composite_score * 100).toFixed(0) + '/100' : '—'}
                           </div>
                         </div>
                         <div>
                           <div className="asset-field-label">Rủi ro</div>
                           <div className="asset-field-value" style={{ color: 'var(--gold-dark)' }}>
-                            {rsk ? (rsk.composite_risk * 100).toFixed(1) + '%' : (s.risk_score * 100).toFixed(0) + '%'}
+                            {rsk ? rsk.composite_risk.toFixed(1) + '/10' : s.risk_score.toFixed(1) + '/10'}
                           </div>
                         </div>
                       </div>
@@ -251,24 +253,41 @@ export default function Portfolio() {
 
               {/* Bar chart */}
               <div className="chart-block">
-                <div className="chart-block-title">Phân tích hiệu suất</div>
-                <div className="chart-block-sub">So sánh lợi nhuận và rủi ro từng tài sản</div>
+                <div className="chart-block-title">Điểm lợi nhuận vs rủi ro</div>
+                <div className="chart-block-sub">
+                  Điểm LN: percentile rank 0–100 · Điểm RR: risk score 0–10 (×10 để so sánh)
+                </div>
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={barData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#EDE5D8" vertical={false} />
                     <XAxis dataKey="ticker" tick={{ fill: '#A09080', fontSize: 12 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill: '#A09080', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis domain={[0, 100]} tick={{ fill: '#A09080', fontSize: 11 }} axisLine={false} tickLine={false} />
                     <BarTip content={<BarCustomTooltip />} />
                     <Legend wrapperStyle={{ fontSize: 12, color: 'var(--text-secondary)', paddingTop: 10 }} iconType="circle" />
-                    <Bar dataKey="loi_nhuan" name="Lợi nhuận (%)" fill="#4A7C5F" radius={[3,3,0,0]} />
-                    <Bar dataKey="rui_ro"    name="Rủi ro (%)"    fill="#C4A265" radius={[3,3,0,0]} />
+                    <Bar dataKey="diem_ln" name="Điểm LN (0–100)" fill="#4A7C5F" radius={[3,3,0,0]} />
+                    <Bar dataKey="diem_rr" name="Điểm RR (×10)"   fill="#C4A265" radius={[3,3,0,0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
 
-              <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'right', marginTop: 8 }}>
-                Sharpe Ratio: {data.sharpe_ratio?.toFixed(2)} · Chiến lược: {RISK_LABELS[riskIdx]}
-              </p>
+              <div style={{
+                display: 'flex', justifyContent: 'flex-end', gap: 20,
+                marginTop: 10, padding: '8px 12px',
+                background: '#FAF7F2', borderRadius: 8,
+              }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Sharpe Ratio</div>
+                  <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--gold-dark)' }}>
+                    {data.sharpe_ratio?.toFixed(2) ?? '—'}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Chiến lược</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
+                    {RISK_LABELS[riskIdx]}
+                  </div>
+                </div>
+              </div>
             </>
           )}
         </div>

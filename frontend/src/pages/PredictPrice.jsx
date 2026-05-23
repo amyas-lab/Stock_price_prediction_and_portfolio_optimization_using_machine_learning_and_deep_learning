@@ -130,10 +130,12 @@ export default function PredictPrice() {
   const yMin = allPrices.length ? Math.round(Math.min(...allPrices) * 0.995) : 0
   const yMax = allPrices.length ? Math.round(Math.max(...allPrices) * 1.005) : 'auto'
 
-  const rawReturn  = result?.predicted_returns?.[0] ?? 0
-  const returnVal  = result ? safeReturn(rawReturn, result.direction) : 0
-  const predictedP1 = result ? Math.round(result.current_price * Math.exp(returnVal)) : null
-  const isUp       = returnVal > 0
+  // 5-day cumulative return (more meaningful than day+1 which rounds to 0)
+  const cum5Return  = result
+    ? result.predicted_returns.reduce((acc, r) => acc + safeReturn(r, result.direction), 0)
+    : 0
+  const predicted5D = result ? Math.round(result.current_price * Math.exp(cum5Return)) : null
+  const isUp        = cum5Return > 0
   const sigStyle  = signal ? (SIGNAL_STYLE[signal.signal] ?? SIGNAL_STYLE.HOLD) : null
   const isSpecial = result ? SPECIALIZED.has(result.ticker) : false
 
@@ -236,11 +238,11 @@ export default function PredictPrice() {
               </div>
               <div className="price-label">Giá hiện tại</div>
               <div className="price-current">{fmtVND(result.current_price)}</div>
-              <div className="price-label">Dự đoán ngày +1</div>
-              <div className="price-predicted">{fmtVND(predictedP1)}</div>
-              <div className="price-label" style={{ marginTop: 8 }}>Thay đổi dự kiến</div>
+              <div className="price-label">Dự báo cuối kỳ (+5 ngày)</div>
+              <div className="price-predicted">{fmtVND(predicted5D)}</div>
+              <div className="price-label" style={{ marginTop: 8 }}>Tổng thay đổi dự kiến</div>
               <div className={`price-change ${isUp ? 'up' : 'down'}`}>
-                {isUp ? '↗' : '↘'} {isUp ? '+' : ''}{(returnVal * 100).toFixed(2)}%
+                {isUp ? '↗' : '↘'} {isUp ? '+' : ''}{(cum5Return * 100).toFixed(2)}%
               </div>
             </div>
           )}

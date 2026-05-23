@@ -24,7 +24,12 @@ notebooks/
 ├── task2_vietnam_price/   # Task 2 — Vietnam 5-day MTL price forecasting
 ├── task3_trading_signals/ # Task 3 — BUY/SELL/HOLD signal identification (XGBoost)
 ├── task4_portfolio/       # Task 4 — Portfolio optimization (profitability + risk scoring)
-└── extras/                # Supplementary: EDA, sentiment, vnstock exploration
+└── extras/                # Supplementary: EDA, sentiment scraping, vnstock exploration
+
+data/                      # Shared datasets (see data/README.md)
+├── vietnam/               # HOSE raw OHLCV + production feature/signal/portfolio CSVs
+├── nasdaq/                # US Nasdaq raw + engineered CSVs
+└── sentiment/             # Scraped financial news (26 tickers)
 
 models/                    # Trained artifacts (see models/README.md)
 src/
@@ -105,6 +110,67 @@ streamlit run src/dashboard/app.py
 cd src/airflow
 airflow standalone
 ```
+
+---
+
+## Deployment
+
+The project has **two independent deployment targets** managed via separate git branches.
+
+### Frontend → Vercel (auto-deploy)
+
+Vercel watches the `main` branch. Every push automatically triggers a rebuild.
+
+```bash
+# 1. Commit your changes
+git add frontend/src/
+git commit -m "your message"
+
+# 2. Push — Vercel deploys within ~2 min
+git push origin main
+```
+
+Dashboard: [vercel.com/dashboard](https://vercel.com/dashboard) → check build logs if the deploy fails.
+
+---
+
+### Backend → HF Spaces (manual, `hf-deploy` branch)
+
+The `hf-deploy` branch is a self-contained slice of the repo — it holds only the API source, models, and production data files. It is **not** kept in sync with `main` automatically; you cherry-pick changes into it manually.
+
+```bash
+# 1. Switch to the deploy branch
+git checkout hf-deploy
+
+# 2. Pull in only the API files you changed on main
+git checkout main -- src/api/main.py
+# If config.py changed, bring it too — but note: hf-deploy uses
+# notebooks/data/ as DATA_DIR (the container was built that way).
+# Only update config.py here if you also moved the data files in this branch.
+
+# 3. Commit
+git add src/api/
+git commit -m "sync API changes from main"
+
+# 4. Push to HF Spaces remote (remote is named 'hf')
+git push hf hf-deploy:main
+
+# 5. Return to main
+git checkout main
+```
+
+HF Spaces rebuilds the Docker container on every push. Build logs: [huggingface.co/spaces/amyas0107/investnature-api](https://huggingface.co/spaces/amyas0107/investnature-api) → Logs tab.
+
+> **Why two branches?** The full project repo (~500 MB with models + LFS data) exceeds HF Spaces' push limits. `hf-deploy` contains only the ~180 MB needed to run the API.
+
+---
+
+### Deployment summary
+
+| Target | Trigger | Branch | Remote |
+|---|---|---|---|
+| Vercel (frontend) | Auto on push | `main` | `origin` |
+| HF Spaces (API) | Manual push | `hf-deploy` | `hf` |
 
 ---
 
