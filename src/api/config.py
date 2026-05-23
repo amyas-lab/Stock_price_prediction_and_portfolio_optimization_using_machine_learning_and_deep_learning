@@ -26,7 +26,7 @@ MODEL_PATHS = {
 }
 
 # Data paths
-DATA_DIR = ROOT / 'notebooks' / 'data' / 'vietnam'
+DATA_DIR = ROOT / 'data' / 'vietnam'
 
 DATA_PATHS = {
     'profitability'  : DATA_DIR / 'task4_profitability_scores.csv',
