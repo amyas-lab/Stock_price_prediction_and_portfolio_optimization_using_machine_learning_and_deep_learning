@@ -1,3 +1,13 @@
+---
+title: InvestNature API
+emoji: 🌿
+colorFrom: yellow
+colorTo: green
+sdk: docker
+pinned: false
+app_port: 7860
+---
+
 # CS313 Final Project — Time-Series Deep Learning for Stock Markets
 
 ## Problem Statement

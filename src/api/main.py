@@ -148,6 +148,7 @@ def _get_precomputed_features(ticker: str,
 
 def _decode_prediction(reg_pred, cls_pred, current_price: float, target_scaler=None):
     """Unpack MTL model output into returns, prices, direction, confidence."""
+    # Inverse-scale regression output if model was trained on scaled targets
     if target_scaler is not None:
         try:
             reg_pred = target_scaler.inverse_transform(reg_pred)
@@ -260,6 +261,7 @@ async def predict_price(request: PredictionRequest):
                 current_price = csv_price
         except Exception:
             current_price = csv_price
+
 
     # ── Branch 2: live fetch ──────────────────────────────────
     else:
