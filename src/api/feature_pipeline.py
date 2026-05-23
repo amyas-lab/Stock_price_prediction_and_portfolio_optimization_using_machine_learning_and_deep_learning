@@ -52,15 +52,16 @@ _vni_lock = Lock()
 # ── VNI data: CSV primary + yfinance supplement ───────────────
 
 def _load_vni_csv() -> pd.DataFrame:
-    df = pd.read_csv(_VNI_CSV_PATH, encoding="utf-8-sig")
-    # Strip BOM (﻿) and any non-ASCII from column names
+    # index_col=0: makes the first column the index regardless of its name,
+    # which handles both "date"-headed and unnamed-index CSV formats.
+    df = pd.read_csv(_VNI_CSV_PATH, encoding="utf-8-sig", index_col=0)
     df.columns = [
         c.encode("ascii", "ignore").decode("ascii").lower().strip()
         for c in df.columns
     ]
-    df["date"] = pd.to_datetime(df["date"])
-    df = df.set_index("date")
-    df.index = df.index.tz_localize(None)
+    df.index = pd.to_datetime(df.index)
+    df.index.name = "date"
+    df.index = df.index.tz_localize(None) if df.index.tz is None else df.index.tz_convert(None)
     df["volume"] = df["volume"].fillna(0)
     return (
         df[["open", "high", "low", "close", "volume"]]
@@ -115,7 +116,8 @@ def _fetch_ohlcv(symbol: str, start: str, end: str) -> pd.DataFrame:
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
     df.columns = [c.lower() for c in df.columns]
-    df.index   = pd.to_datetime(df.index).tz_localize(None)
+    idx = pd.to_datetime(df.index)
+    df.index = idx.tz_localize(None) if idx.tz is None else idx.tz_convert(None)
     required   = ["open", "high", "low", "close", "volume"]
     return df[required].dropna()
 
