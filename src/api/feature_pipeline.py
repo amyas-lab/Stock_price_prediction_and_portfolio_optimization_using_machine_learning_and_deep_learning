@@ -39,7 +39,7 @@ FEATURE_COLS = [
 _FETCH_EXTRA_DAYS = 110
 _VNI_CSV_PATH = (
     Path(__file__).parent.parent.parent
-    / "notebooks" / "data" / "vietnam" / "csv" / "vnindex_ohlcv.csv"
+    / "data" / "vietnam" / "vnindex_ohlcv.csv"
 )
 
 # ── In-memory cache: max 128 tickers, 1-hour TTL ─────────────
