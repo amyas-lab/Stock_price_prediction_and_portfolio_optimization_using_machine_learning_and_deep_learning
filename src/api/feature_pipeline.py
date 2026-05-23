@@ -52,9 +52,12 @@ _vni_lock = Lock()
 # ── VNI data: CSV primary + yfinance supplement ───────────────
 
 def _load_vni_csv() -> pd.DataFrame:
-    # encoding='utf-8-sig' strips BOM (﻿) so column names are clean
     df = pd.read_csv(_VNI_CSV_PATH, encoding="utf-8-sig")
-    df.columns = [c.lower().strip() for c in df.columns]
+    # Strip BOM (﻿) and any non-ASCII from column names
+    df.columns = [
+        c.encode("ascii", "ignore").decode("ascii").lower().strip()
+        for c in df.columns
+    ]
     df["date"] = pd.to_datetime(df["date"])
     df = df.set_index("date")
     df.index = df.index.tz_localize(None)

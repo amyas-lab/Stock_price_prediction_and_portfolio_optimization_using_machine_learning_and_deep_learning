@@ -357,17 +357,17 @@ async def predict_signal(request: SignalRequest):
             raise HTTPException(503, "Model or scaler not available")
         try:
             X, _, sig_date = build_live_features(ticker, scaler)
+            _, cls_pred = model.predict(X, verbose=0)
+            p_sell = float(cls_pred[0, 0])
+            p_hold = float(cls_pred[0, 1])
+            p_buy  = float(cls_pred[0, 2])
+            data_source = "live-yfinance"
         except ValueError as exc:
             raise HTTPException(400, str(exc))
-        except Exception as exc:
-            raise HTTPException(
-                503, f"Live data fetch failed for '{ticker}': {exc}"
-            )
-        _, cls_pred = model.predict(X, verbose=0)
-        p_sell = float(cls_pred[0, 0])
-        p_hold = float(cls_pred[0, 1])
-        p_buy  = float(cls_pred[0, 2])
-        data_source = "live-yfinance"
+        except Exception:
+            # Live fetch failed — return equal-weight HOLD as safe default
+            p_buy = p_sell = p_hold = 1 / 3
+            data_source = "fallback-hold"
 
     conviction = max(p_buy, p_sell)
 
