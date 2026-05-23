@@ -237,13 +237,27 @@ async def predict_price(request: PredictionRequest):
         X = _get_precomputed_features(ticker, n_days)
 
         df       = DATA["master_features"]
-        last_row = df[df["ticker"] == ticker].sort_values("date").iloc[-1]
+        df_ticker = df[df["ticker"] == ticker].sort_values("date")
+        last_row  = df_ticker.iloc[-1]
         csv_price = float(last_row["close"])
         if csv_price < 1000:
             csv_price *= 1000
         last_date   = str(last_row["date"].date())
         data_source = "pre-computed"
         model_label = "MTL_T4_Specialized"
+
+        # Last 30 trading days of real close prices for chart history
+        hist_rows = df_ticker.tail(30)
+        historical_prices = [
+            {
+                "date" : str(row["date"].date()),
+                "price": round(
+                    float(row["close"]) if float(row["close"]) >= 1000
+                    else float(row["close"]) * 1000
+                ),
+            }
+            for _, row in hist_rows.iterrows()
+        ]
 
         # Fetch live current price so chart reflects today's market
         try:
@@ -278,9 +292,10 @@ async def predict_price(request: PredictionRequest):
             raise HTTPException(
                 503, f"Live data fetch failed for '{ticker}': {exc}"
             )
-        current_price = raw_price if raw_price >= 1000 else raw_price * 1000
-        data_source   = "live-yfinance"
-        model_label   = "MTL_T4_Live"
+        current_price     = raw_price if raw_price >= 1000 else raw_price * 1000
+        data_source       = "live-yfinance"
+        model_label       = "MTL_T4_Live"
+        historical_prices = []
 
     reg_pred, cls_pred = model.predict(X, verbose=0)
     (pred_returns, pred_prices,
@@ -291,16 +306,17 @@ async def predict_price(request: PredictionRequest):
      )
 
     return PricePredictionResponse(
-        ticker            = ticker,
-        prediction_date   = last_date,
-        current_price     = current_price,
-        predicted_returns = pred_returns,
-        predicted_prices  = pred_prices,
-        direction         = direction,
-        confidence        = confidence,
-        model_used        = model_label,
-        is_known_ticker   = is_known,
-        data_source       = data_source,
+        ticker             = ticker,
+        prediction_date    = last_date,
+        current_price      = current_price,
+        predicted_returns  = pred_returns,
+        predicted_prices   = pred_prices,
+        direction          = direction,
+        confidence         = confidence,
+        model_used         = model_label,
+        is_known_ticker    = is_known,
+        data_source        = data_source,
+        historical_prices  = historical_prices,
     )
 
 

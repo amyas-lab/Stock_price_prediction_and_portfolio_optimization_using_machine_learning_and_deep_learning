@@ -54,6 +54,10 @@ class PricePredictionResponse(BaseModel):
         default="pre-computed",
         description="pre-computed | live-yfinance"
     )
+    historical_prices : List[Dict] = Field(
+        default=[],
+        description="Last 30 actual close prices [{date, price}] for chart history"
+    )
 
 
 class SignalResponse(BaseModel):

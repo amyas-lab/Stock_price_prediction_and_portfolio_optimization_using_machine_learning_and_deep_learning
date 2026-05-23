@@ -37,30 +37,38 @@ function safeReturn(rawReturn, direction) {
   return sign * 0.003
 }
 
-// 20-day synthetic history → bridge "Hôm nay" → predicted days
-function buildChartData(currentPrice, predictedReturns, direction) {
-  const HIST_LEN = 20
+// Build chart data: real or synthetic history → bridge "Hôm nay" → predicted days
+function buildChartData(currentPrice, predictedReturns, direction, historicalPrices = []) {
   const data = []
 
-  let seed = Math.floor(currentPrice * 137) % 99991
-  const rand = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280 }
-
-  const hist = []
-  let p = currentPrice
-  for (let i = 0; i < HIST_LEN; i++) {
-    p = p / (1 + (rand() - 0.49) * 0.018)
-    hist.unshift(p)
+  if (historicalPrices.length > 0) {
+    // Real OHLCV history from API
+    historicalPrices.forEach(({ date, price }) => {
+      const d = new Date(date)
+      const label = `${d.getDate()}/${d.getMonth() + 1}`
+      data.push({ day: label, actual: Math.round(price), predicted: null })
+    })
+  } else {
+    // Synthetic fallback for unknown tickers (no CSV on server)
+    const HIST_LEN = 20
+    let seed = Math.floor(currentPrice * 137) % 99991
+    const rand = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280 }
+    const hist = []
+    let p = currentPrice
+    for (let i = 0; i < HIST_LEN; i++) {
+      p = p / (1 + (rand() - 0.49) * 0.018)
+      hist.unshift(p)
+    }
+    hist[hist.length - 1] = currentPrice
+    hist.forEach((price, i) => {
+      data.push({ day: `T-${HIST_LEN - i}`, actual: Math.round(price), predicted: null })
+    })
   }
-  hist[hist.length - 1] = currentPrice
 
-  hist.forEach((price, i) => {
-    data.push({ day: `T-${HIST_LEN - i}`, actual: Math.round(price), predicted: null })
-  })
-
-  // Bridge point — cả hai đường gặp nhau tại giá hiện tại
+  // Bridge point — both lines meet at current price
   data.push({ day: 'Hôm nay', actual: Math.round(currentPrice), predicted: Math.round(currentPrice) })
 
-  // Reconstruct predicted trajectory from normalized returns
+  // Predicted trajectory
   let predP = currentPrice
   predictedReturns.forEach((r, i) => {
     const normalizedR = safeReturn(r, direction)
@@ -124,7 +132,7 @@ export default function PredictPrice() {
     }
   }
 
-  const chartData  = result ? buildChartData(result.current_price, result.predicted_returns, result.direction) : []
+  const chartData  = result ? buildChartData(result.current_price, result.predicted_returns, result.direction, result.historical_prices ?? []) : []
   const returnBars = result ? buildReturnBars(result.predicted_returns, result.direction) : []
   const allPrices  = chartData.flatMap(d => [d.actual, d.predicted]).filter(Boolean)
   const yMin = allPrices.length ? Math.round(Math.min(...allPrices) * 0.995) : 0
@@ -278,7 +286,10 @@ export default function PredictPrice() {
             <div className="chart-block">
               <div className="chart-block-title">Biểu đồ dự đoán giá</div>
               <div className="chart-block-sub">
-                20 ngày lịch sử (nét liền) · 5 ngày dự báo (nét đứt vàng)
+                {result?.historical_prices?.length > 0
+                  ? `${result.historical_prices.length} ngày thực tế (nét liền) · 5 ngày dự báo (nét đứt vàng)`
+                  : '20 ngày lịch sử (nét liền) · 5 ngày dự báo (nét đứt vàng)'
+                }
               </div>
               <ResponsiveContainer width="100%" height={260}>
                 <AreaChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
