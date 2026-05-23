@@ -147,31 +147,10 @@ def _get_precomputed_features(ticker: str,
     return X.reshape(1, n_days, len(feat_cols))
 
 
-def _decode_prediction(reg_pred, cls_pred, current_price: float, target_scaler=None):
+def _decode_prediction(reg_pred, cls_pred, current_price: float):
     """Unpack MTL model output into returns, prices, direction, confidence."""
-    # Inverse-scale regression output if model was trained on scaled targets
-    if target_scaler is not None:
-        try:
-            reg_pred = target_scaler.inverse_transform(reg_pred)
-        except Exception:
-            # Shape mismatch: scaler has more features than model output (e.g. 5 vs 1)
-            # Manually unscale using the last (longest-horizon) scaler column
-            try:
-                col    = target_scaler.n_features_in_ - 1
-                center = getattr(target_scaler, "center_",
-                                 getattr(target_scaler, "mean_", [0] * (col + 1)))[col]
-                scale  = target_scaler.scale_[col]
-                reg_pred = reg_pred * scale + center
-            except Exception as e2:
-                print(f"  ⚠ manual unscale failed ({e2}), using raw output")
-
     raw          = reg_pred[0]
     pred_returns = raw.tolist() if hasattr(raw, "tolist") else [float(raw)]
-
-    # Model outputs single cumulative n-day return → split into 5 equal daily steps
-    if len(pred_returns) == 1:
-        daily_r      = pred_returns[0] / 5
-        pred_returns = [daily_r] * 5
 
     pred_prices: list = []
     price = current_price
@@ -300,7 +279,6 @@ async def predict_price(request: PredictionRequest):
      direction, confidence,
      p_buy, p_sell, p_hold) = _decode_prediction(
          reg_pred, cls_pred, current_price,
-         target_scaler=MODELS.get("target_scaler"),
      )
 
     return PricePredictionResponse(
