@@ -52,10 +52,12 @@ _vni_lock = Lock()
 # ── VNI data: CSV primary + yfinance supplement ───────────────
 
 def _load_vni_csv() -> pd.DataFrame:
-    df = pd.read_csv(_VNI_CSV_PATH, parse_dates=["date"])
-    df.columns = [c.lower() for c in df.columns]
+    # encoding='utf-8-sig' strips BOM (﻿) so column names are clean
+    df = pd.read_csv(_VNI_CSV_PATH, encoding="utf-8-sig")
+    df.columns = [c.lower().strip() for c in df.columns]
+    df["date"] = pd.to_datetime(df["date"])
     df = df.set_index("date")
-    df.index = pd.to_datetime(df.index).tz_localize(None)
+    df.index = df.index.tz_localize(None)
     df["volume"] = df["volume"].fillna(0)
     return (
         df[["open", "high", "low", "close", "volume"]]

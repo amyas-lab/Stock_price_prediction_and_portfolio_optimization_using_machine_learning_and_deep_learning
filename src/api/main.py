@@ -281,9 +281,13 @@ async def predict_price(request: PredictionRequest):
 
     # ── Historical prices from per-ticker OHLCV CSV ───────────────
     try:
-        ohlcv = pd.read_csv(
-            DATA_DIR / f"{ticker}_ohlcv.csv", parse_dates=["date"]
-        ).sort_values("date").tail(30)
+        ohlcv = pd.read_csv(DATA_DIR / f"{ticker}_ohlcv.csv")
+        ohlcv.columns = [c.lower().strip() for c in ohlcv.columns]
+        if "date" not in ohlcv.columns:
+            ohlcv = ohlcv.reset_index()
+            ohlcv.columns = [c.lower().strip() for c in ohlcv.columns]
+        ohlcv["date"] = pd.to_datetime(ohlcv["date"])
+        ohlcv = ohlcv.sort_values("date").tail(30)
         historical_prices = [
             {"date": str(row["date"].date()), "price": round(float(row["close"]))}
             for _, row in ohlcv.iterrows()
