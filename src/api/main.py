@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 import joblib
 import tensorflow as tf
+import yfinance as yf
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -236,12 +237,29 @@ async def predict_price(request: PredictionRequest):
 
         df       = DATA["master_features"]
         last_row = df[df["ticker"] == ticker].sort_values("date").iloc[-1]
-        current_price = float(last_row["close"])
-        if current_price < 1000:
-            current_price *= 1000
+        csv_price = float(last_row["close"])
+        if csv_price < 1000:
+            csv_price *= 1000
         last_date   = str(last_row["date"].date())
         data_source = "pre-computed"
         model_label = "MTL_T4_Specialized"
+
+        # Fetch live current price so chart reflects today's market
+        try:
+            live_df = yf.download(
+                f"{ticker}.VN", period="5d",
+                auto_adjust=True, progress=False, timeout=10,
+            )
+            if not live_df.empty:
+                if isinstance(live_df.columns, pd.MultiIndex):
+                    live_df.columns = live_df.columns.get_level_values(0)
+                live_close = float(live_df["Close"].iloc[-1])
+                current_price = live_close if live_close >= 1000 else live_close * 1000
+                last_date = str(live_df.index[-1].date())
+            else:
+                current_price = csv_price
+        except Exception:
+            current_price = csv_price
 
     # ── Branch 2: live fetch ──────────────────────────────────
     else:

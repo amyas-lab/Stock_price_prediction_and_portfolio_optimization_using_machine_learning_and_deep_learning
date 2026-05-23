@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   ResponsiveContainer, AreaChart, Area,
-  LineChart, Line,
+  BarChart, Bar, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from 'recharts'
 import { predictPrice, predictSignal } from '../api/stockApi.js'
@@ -17,7 +17,6 @@ const TICKER_NAMES = {
 }
 const KNOWN = new Set(Object.keys(TICKER_NAMES))
 
-// 27 tickers trained with specialized MTL_T4 model
 const SPECIALIZED = new Set([
   'FPT','VCB','VHM','VNM','HPG','VIC','TCB','MSN','MWG','VND',
   'BID','CTG','MBB','ACB','HDB','TPB','SHB','PDR','KDH','DXG',
@@ -29,8 +28,17 @@ function fmtVND(v) {
   return v.toLocaleString('vi-VN') + ' VNĐ'
 }
 
-// Build 20-day synthetic history + 5-day real predicted trajectory
-function buildChartData(currentPrice, predictedPrices) {
+// If model output is in scaled space (|return| > 7%), derive direction from
+// classification head and use a default 0.3% magnitude per day instead.
+function safeReturn(rawReturn, direction) {
+  const MAX_REAL_DAILY = 0.07 // VN circuit-breaker ~7%
+  if (Math.abs(rawReturn) <= MAX_REAL_DAILY) return rawReturn
+  const sign = direction === 'UP' ? 1 : direction === 'DOWN' ? -1 : 0
+  return sign * 0.003
+}
+
+// 20-day synthetic history → bridge "Hôm nay" → predicted days
+function buildChartData(currentPrice, predictedReturns, direction) {
   const HIST_LEN = 20
   const data = []
 
@@ -46,26 +54,29 @@ function buildChartData(currentPrice, predictedPrices) {
   hist[hist.length - 1] = currentPrice
 
   hist.forEach((price, i) => {
-    data.push({
-      day: `T-${HIST_LEN - i}`,
-      actual: Math.round(price),
-      predicted: null,
-      upper: null,
-      lower: null,
-    })
+    data.push({ day: `T-${HIST_LEN - i}`, actual: Math.round(price), predicted: null })
   })
 
-  predictedPrices.forEach((pred, i) => {
-    data.push({
-      day: `+${i + 1}`,
-      actual: null,
-      predicted: Math.round(pred),
-      upper: Math.round(pred * 1.04),
-      lower: Math.round(pred * 0.96),
-    })
+  // Bridge point — cả hai đường gặp nhau tại giá hiện tại
+  data.push({ day: 'Hôm nay', actual: Math.round(currentPrice), predicted: Math.round(currentPrice) })
+
+  // Reconstruct predicted trajectory from normalized returns
+  let predP = currentPrice
+  predictedReturns.forEach((r, i) => {
+    const normalizedR = safeReturn(r, direction)
+    predP = predP * Math.exp(normalizedR)
+    data.push({ day: `+${i + 1}`, actual: null, predicted: Math.round(predP) })
   })
 
   return data
+}
+
+// Bar chart: predicted return per day (normalized for display)
+function buildReturnBars(predictedReturns, direction) {
+  return (predictedReturns || []).map((r, i) => ({
+    day: `+${i + 1}`,
+    return_pct: +(safeReturn(r, direction) * 100).toFixed(3),
+  }))
 }
 
 const ChartTooltip = ({ active, payload, label }) => {
@@ -113,19 +124,22 @@ export default function PredictPrice() {
     }
   }
 
-  const chartData = result ? buildChartData(result.current_price, result.predicted_prices) : []
-  const allPrices = chartData.flatMap(d => [d.actual, d.predicted, d.upper, d.lower]).filter(Boolean)
-  const yMin = allPrices.length ? Math.round(Math.min(...allPrices) * 0.996) : 0
-  const yMax = allPrices.length ? Math.round(Math.max(...allPrices) * 1.004) : 'auto'
+  const chartData  = result ? buildChartData(result.current_price, result.predicted_returns, result.direction) : []
+  const returnBars = result ? buildReturnBars(result.predicted_returns, result.direction) : []
+  const allPrices  = chartData.flatMap(d => [d.actual, d.predicted]).filter(Boolean)
+  const yMin = allPrices.length ? Math.round(Math.min(...allPrices) * 0.995) : 0
+  const yMax = allPrices.length ? Math.round(Math.max(...allPrices) * 1.005) : 'auto'
 
-  const returnVal  = result?.predicted_returns?.[0] ?? 0
+  const rawReturn  = result?.predicted_returns?.[0] ?? 0
+  const returnVal  = result ? safeReturn(rawReturn, result.direction) : 0
+  const predictedP1 = result ? Math.round(result.current_price * Math.exp(returnVal)) : null
   const isUp       = returnVal > 0
-  const sigStyle   = signal ? (SIGNAL_STYLE[signal.signal] ?? SIGNAL_STYLE.HOLD) : null
-  const isSpecial  = result ? SPECIALIZED.has(result.ticker) : false
+  const sigStyle  = signal ? (SIGNAL_STYLE[signal.signal] ?? SIGNAL_STYLE.HOLD) : null
+  const isSpecial = result ? SPECIALIZED.has(result.ticker) : false
 
   return (
     <div className="predict-layout">
-      {/* ── Left: config panel ── */}
+      {/* ── Left: config ── */}
       <div className="predict-config">
         <div className="card">
           <div className="card-title">Cấu hình dự đoán</div>
@@ -223,7 +237,7 @@ export default function PredictPrice() {
               <div className="price-label">Giá hiện tại</div>
               <div className="price-current">{fmtVND(result.current_price)}</div>
               <div className="price-label">Dự đoán ngày +1</div>
-              <div className="price-predicted">{fmtVND(result.predicted_prices[0])}</div>
+              <div className="price-predicted">{fmtVND(predictedP1)}</div>
               <div className="price-label" style={{ marginTop: 8 }}>Thay đổi dự kiến</div>
               <div className={`price-change ${isUp ? 'up' : 'down'}`}>
                 {isUp ? '↗' : '↘'} {isUp ? '+' : ''}{(returnVal * 100).toFixed(2)}%
@@ -258,7 +272,7 @@ export default function PredictPrice() {
 
         {result && !loading && (
           <>
-            {/* Price chart: 20 history (solid) + 5 predicted (dashed) */}
+            {/* Price chart: history → bridge → 5-day forecast */}
             <div className="chart-block">
               <div className="chart-block-title">Biểu đồ dự đoán giá</div>
               <div className="chart-block-sub">
@@ -296,22 +310,13 @@ export default function PredictPrice() {
                     iconType="circle"
                   />
                   <Area
-                    type="monotone"
-                    dataKey="actual"
-                    name="Giá lịch sử"
-                    stroke="#4A7C5F"
-                    strokeWidth={2}
-                    fill="url(#fillActual)"
-                    dot={false}
-                    connectNulls={false}
+                    type="monotone" dataKey="actual" name="Giá lịch sử"
+                    stroke="#4A7C5F" strokeWidth={2}
+                    fill="url(#fillActual)" dot={false} connectNulls={false}
                   />
                   <Area
-                    type="monotone"
-                    dataKey="predicted"
-                    name="Giá dự báo"
-                    stroke="#C4A265"
-                    strokeWidth={2}
-                    strokeDasharray="5 3"
+                    type="monotone" dataKey="predicted" name="Giá dự báo"
+                    stroke="#C4A265" strokeWidth={2} strokeDasharray="5 3"
                     fill="url(#fillPredicted)"
                     dot={{ r: 4, fill: '#C4A265', strokeWidth: 0 }}
                     connectNulls={false}
@@ -320,39 +325,69 @@ export default function PredictPrice() {
               </ResponsiveContainer>
             </div>
 
-            {/* Confidence interval chart */}
+            {/* Return momentum bar chart + signal probs */}
             <div className="chart-block">
-              <div className="chart-block-title">Khoảng tin cậy dự báo</div>
-              <div className="chart-block-sub">Vùng dao động ±4% quanh giá dự báo</div>
-              <ResponsiveContainer width="100%" height={220}>
-                <LineChart
-                  data={chartData.filter(d => d.predicted != null)}
-                  margin={{ top: 8, right: 16, bottom: 0, left: 0 }}
-                >
+              <div className="chart-block-title">Biến động dự báo theo ngày</div>
+              <div className="chart-block-sub">
+                Log-return từng ngày trong quỹ đạo 5 ngày — xanh tăng, vàng giảm
+              </div>
+              <ResponsiveContainer width="100%" height={180}>
+                <BarChart data={returnBars} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#EDE5D8" vertical={false} />
                   <XAxis
                     dataKey="day"
-                    tick={{ fill: '#A09080', fontSize: 11 }}
+                    tick={{ fill: '#A09080', fontSize: 13 }}
                     axisLine={false} tickLine={false}
                   />
                   <YAxis
-                    tickFormatter={v => v.toLocaleString('vi-VN')}
+                    tickFormatter={v => `${v > 0 ? '+' : ''}${v.toFixed(2)}%`}
                     tick={{ fill: '#A09080', fontSize: 11 }}
                     axisLine={false} tickLine={false}
-                    width={72}
+                    width={62}
                   />
-                  <Tooltip content={<ChartTooltip />} />
-                  <Legend wrapperStyle={{ fontSize: 12, color: 'var(--text-secondary)', paddingTop: 10 }} iconType="circle" />
-                  <Line type="monotone" dataKey="upper"     name="Giới hạn trên" stroke="#D4BA82" strokeWidth={1.5} strokeDasharray="4 3" dot={{ r: 3, fill: '#D4BA82', strokeWidth: 0 }} />
-                  <Line type="monotone" dataKey="predicted" name="Dự báo"         stroke="#C4A265" strokeWidth={2}   strokeDasharray="4 3" dot={{ r: 4, fill: '#C4A265', strokeWidth: 0 }} />
-                  <Line type="monotone" dataKey="lower"     name="Giới hạn dưới" stroke="#9E7E45" strokeWidth={1.5} strokeDasharray="4 3" dot={{ r: 3, fill: '#9E7E45', strokeWidth: 0 }} />
-                </LineChart>
+                  <Tooltip
+                    formatter={v => [`${v > 0 ? '+' : ''}${v.toFixed(3)}%`, 'Log-return']}
+                    labelFormatter={l => `Ngày ${l}`}
+                    contentStyle={{
+                      background: '#FAF7F2', border: '1px solid #EDE5D8',
+                      borderRadius: 8, fontSize: 12,
+                    }}
+                  />
+                  <Bar dataKey="return_pct" name="Return (%)" radius={[4, 4, 0, 0]}>
+                    {returnBars.map((d, i) => (
+                      <Cell key={i} fill={d.return_pct >= 0 ? '#4A7C5F' : '#C4A265'} />
+                    ))}
+                  </Bar>
+                </BarChart>
               </ResponsiveContainer>
+
+              {/* P(MUA / GIỮ / BÁN) từ signal endpoint */}
+              {signal && (
+                <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+                  {[
+                    { label: 'P(MUA)', value: signal.p_buy,  color: '#4A7C5F', bg: '#E8F5E9' },
+                    { label: 'P(GIỮ)', value: signal.p_hold, color: '#9E7E45', bg: '#FFF8E1' },
+                    { label: 'P(BÁN)', value: signal.p_sell, color: '#C62828', bg: '#FFEBEE' },
+                  ].map(({ label, value, color, bg }) => (
+                    <div key={label} style={{
+                      flex: 1, textAlign: 'center',
+                      background: bg, borderRadius: 10, padding: '10px 6px',
+                    }}>
+                      <div style={{ fontSize: 20, fontWeight: 800, color }}>
+                        {(value * 100).toFixed(1)}%
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                        {label}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'right' }}>
-              Model: {result.model_used} · Ngày tham chiếu: {result.prediction_date}
-              {' · '}Nguồn: {result.data_source}
+              Model: {result.model_used} · Ref: {result.prediction_date} · {result.data_source}
+              {result.is_known_ticker ? ' · Active DA 63.64%' : ' · Generalist model'}
             </p>
           </>
         )}

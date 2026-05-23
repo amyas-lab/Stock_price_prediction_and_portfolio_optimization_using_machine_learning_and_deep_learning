@@ -225,16 +225,16 @@ export default function Portfolio() {
               <div className="chart-block" style={{ marginBottom: 16 }}>
                 <div className="chart-block-title">Phân bổ danh mục</div>
                 <div className="chart-block-sub">Tỷ trọng từng tài sản trong danh mục</div>
-                <ResponsiveContainer width="100%" height={280}>
+                <ResponsiveContainer width="100%" height={320}>
                   <PieChart>
                     <Pie
                       data={pieData}
-                      cx="50%" cy="50%"
-                      innerRadius={0} outerRadius={110}
+                      cx="50%" cy="42%"
+                      innerRadius={0} outerRadius={82}
                       paddingAngle={2}
                       dataKey="value"
                       label={({ name, value }) => `${name}: ${(value * 100).toFixed(0)}%`}
-                      labelLine={false}
+                      labelLine={{ stroke: '#A09080', strokeWidth: 1, length: 8 }}
                     >
                       {pieData.map((_, i) => (
                         <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
