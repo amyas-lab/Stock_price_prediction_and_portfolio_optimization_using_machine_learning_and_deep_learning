@@ -1,0 +1,54 @@
+name: Monthly Model Retrain
+
+on:
+  schedule:
+    - cron: '30 12 1 * *'   # 1st of each month 19:30 ICT (12:30 UTC)
+  workflow_dispatch:          # allow manual trigger from GitHub UI
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout hf-deploy branch
+        uses: actions/checkout@v4
+        with:
+          ref: hf-deploy
+          lfs: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull LFS objects (models + training data)
+        run: |
+          git lfs pull --include="models/task4_feature_scaler.pkl"
+          git lfs pull --include="data/vietnam/task4_master_features.csv"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements_api.txt
+
+      - name: Retrain MTL T4 model
+        run: python notebooks/task4_portfolio/train_mtl_t4_5step.py
+
+      - name: Commit new models
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add models/mtl_t4_final.keras models/mtl_t4_best.keras
+          git diff --cached --quiet && echo "No changes to commit" || \
+            git commit -m "chore: retrain MTL T4 model $(date -u +'%Y-%m')"
+
+      - name: Push to GitHub (hf-deploy)
+        run: git push origin hf-deploy
+
+      - name: Push to HF Spaces
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          git remote add hf https://amyas0107:${HF_TOKEN}@huggingface.co/spaces/amyas0107/investnature-api
+          git push hf hf-deploy:main

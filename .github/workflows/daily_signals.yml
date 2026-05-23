@@ -1,0 +1,52 @@
+name: Daily Signal Generation
+
+on:
+  schedule:
+    - cron: '30 11 * * 1-5'   # Mon-Fri 18:30 ICT (11:30 UTC)
+  workflow_dispatch:            # allow manual trigger from GitHub UI
+
+jobs:
+  generate-signals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout hf-deploy branch
+        uses: actions/checkout@v4
+        with:
+          ref: hf-deploy
+          lfs: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull LFS objects (models)
+        run: git lfs pull --include="models/mtl_t4_final.keras,models/task4_feature_scaler.pkl"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements_api.txt
+
+      - name: Generate signals
+        run: python scripts/generate_signals_ci.py
+
+      - name: Commit updated signals CSV
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/vietnam/task3_signals_production.csv
+          git diff --cached --quiet && echo "No changes to commit" || \
+            git commit -m "chore: update trading signals $(date -u +'%Y-%m-%d')"
+
+      - name: Push to GitHub (hf-deploy)
+        run: git push origin hf-deploy
+
+      - name: Push to HF Spaces
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          git remote add hf https://amyas0107:${HF_TOKEN}@huggingface.co/spaces/amyas0107/investnature-api
+          git push hf hf-deploy:main
