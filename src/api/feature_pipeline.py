@@ -12,7 +12,6 @@ Feature column order must match task4_feature_scaler exactly:
    'vni_atr', 'vni_bb_middle', 'vni_bb_upper', 'vni_bb_lower']
 """
 
-import time
 import warnings
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -20,7 +19,6 @@ from threading import Lock
 
 import numpy as np
 import pandas as pd
-import requests
 import ta
 import yfinance as yf
 from cachetools import TTLCache
@@ -49,16 +47,6 @@ _cache    = TTLCache(maxsize=128, ttl=3600)
 _lock     = Lock()
 _vni_df: pd.DataFrame | None = None
 _vni_lock = Lock()
-
-# ── Shared requests session: browser User-Agent to reduce Yahoo rate-limits ──
-_yf_session = requests.Session()
-_yf_session.headers.update({
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/120.0.0.0 Safari/537.36"
-    )
-})
 
 
 # ── VNI data: CSV primary + yfinance supplement ───────────────
@@ -116,20 +104,10 @@ def _get_vni_ohlcv(start: str, end: str) -> pd.DataFrame:
 
 # ── Private helpers ───────────────────────────────────────────
 
-def _fetch_ohlcv(symbol: str, start: str, end: str, max_retries: int = 3) -> pd.DataFrame:
-    """Download OHLCV from yfinance with browser User-Agent and retry on rate-limit."""
-    df = pd.DataFrame()
-    for attempt in range(max_retries):
-        df = yf.download(
-            symbol, start=start, end=end,
-            auto_adjust=True, progress=False, timeout=15,
-            session=_yf_session,
-        )
-        if not df.empty:
-            break
-        if attempt < max_retries - 1:
-            time.sleep(2 * (attempt + 1))   # 2 s → 4 s
-
+def _fetch_ohlcv(symbol: str, start: str, end: str) -> pd.DataFrame:
+    """Download OHLCV from yfinance, normalize column names."""
+    df = yf.download(symbol, start=start, end=end,
+                     auto_adjust=True, progress=False, timeout=15)
     if df.empty:
         raise ValueError(
             f"yfinance returned no data for '{symbol}'. "
@@ -140,7 +118,7 @@ def _fetch_ohlcv(symbol: str, start: str, end: str, max_retries: int = 3) -> pd.
     df.columns = [c.lower() for c in df.columns]
     idx = pd.to_datetime(df.index)
     df.index = idx.tz_localize(None) if idx.tz is None else idx.tz_convert(None)
-    required = ["open", "high", "low", "close", "volume"]
+    required   = ["open", "high", "low", "close", "volume"]
     return df[required].dropna()
 
 
