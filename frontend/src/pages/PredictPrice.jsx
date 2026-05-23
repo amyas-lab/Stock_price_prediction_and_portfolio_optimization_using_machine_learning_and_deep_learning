@@ -108,11 +108,12 @@ const SIGNAL_STYLE = {
 }
 
 export default function PredictPrice() {
-  const [ticker,  setTicker]  = useState('')
-  const [loading, setLoading] = useState(false)
-  const [result,  setResult]  = useState(null)
-  const [signal,  setSignal]  = useState(null)
-  const [error,   setError]   = useState(null)
+  const [ticker,      setTicker]      = useState('')
+  const [forecastDays, setForecastDays] = useState(5)
+  const [loading,     setLoading]     = useState(false)
+  const [result,      setResult]      = useState(null)
+  const [signal,      setSignal]      = useState(null)
+  const [error,       setError]       = useState(null)
 
   async function handlePredict() {
     const t = ticker.trim().toUpperCase()
@@ -132,20 +133,18 @@ export default function PredictPrice() {
     }
   }
 
-  const chartData  = result ? buildChartData(result.current_price, result.predicted_returns, result.direction, result.historical_prices ?? []) : []
-  const returnBars = result ? buildReturnBars(result.predicted_returns, result.direction) : []
+  const slicedReturns = result ? result.predicted_returns.slice(0, forecastDays) : []
+  const chartData  = result ? buildChartData(result.current_price, slicedReturns, result.direction, result.historical_prices ?? []) : []
+  const returnBars = result ? buildReturnBars(slicedReturns, result.direction) : []
   const allPrices  = chartData.flatMap(d => [d.actual, d.predicted]).filter(Boolean)
   const yMin = allPrices.length ? Math.round(Math.min(...allPrices) * 0.995) : 0
   const yMax = allPrices.length ? Math.round(Math.max(...allPrices) * 1.005) : 'auto'
 
-  // 5-day cumulative return (more meaningful than day+1 which rounds to 0)
-  const cum5Return  = result
-    ? result.predicted_returns.reduce((acc, r) => acc + safeReturn(r, result.direction), 0)
-    : 0
-  const predicted5D = result ? Math.round(result.current_price * Math.exp(cum5Return)) : null
-  const isUp        = cum5Return > 0
-  const sigStyle  = signal ? (SIGNAL_STYLE[signal.signal] ?? SIGNAL_STYLE.HOLD) : null
-  const isSpecial = result ? SPECIALIZED.has(result.ticker) : false
+  const cumReturn   = slicedReturns.reduce((acc, r) => acc + safeReturn(r, result?.direction), 0)
+  const predictedND = result ? Math.round(result.current_price * Math.exp(cumReturn)) : null
+  const isUp        = cumReturn > 0
+  const sigStyle    = signal ? (SIGNAL_STYLE[signal.signal] ?? SIGNAL_STYLE.HOLD) : null
+  const isSpecial   = result ? SPECIALIZED.has(result.ticker) : false
 
   return (
     <div className="predict-layout">
@@ -181,12 +180,34 @@ export default function PredictPrice() {
             />
           </div>
 
+          <div className="form-group">
+            <label className="form-label">Số ngày dự báo</label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {[1, 3, 5].map(n => (
+                <button
+                  key={n}
+                  onClick={() => setForecastDays(n)}
+                  style={{
+                    flex: 1, padding: '7px 0', borderRadius: 8,
+                    border: `1.5px solid ${forecastDays === n ? 'var(--gold-dark)' : 'var(--border)'}`,
+                    background: forecastDays === n ? '#FFF5E0' : 'transparent',
+                    color: forecastDays === n ? 'var(--gold-dark)' : 'var(--text-muted)',
+                    fontWeight: forecastDays === n ? 700 : 400,
+                    fontSize: 13, cursor: 'pointer',
+                  }}
+                >
+                  {n} ngày
+                </button>
+              ))}
+            </div>
+          </div>
+
           <button
             className="btn btn-primary btn-full"
             onClick={handlePredict}
             disabled={!ticker.trim() || loading}
           >
-            {loading ? '⟳ Đang dự đoán...' : '⊕ Dự đoán 5 ngày'}
+            {loading ? '⟳ Đang dự đoán...' : `⊕ Dự đoán ${forecastDays} ngày`}
           </button>
 
           {result && (
@@ -246,11 +267,11 @@ export default function PredictPrice() {
               </div>
               <div className="price-label">Giá hiện tại</div>
               <div className="price-current">{fmtVND(result.current_price)}</div>
-              <div className="price-label">Dự báo cuối kỳ (+5 ngày)</div>
-              <div className="price-predicted">{fmtVND(predicted5D)}</div>
+              <div className="price-label">Dự báo cuối kỳ (+{forecastDays} ngày)</div>
+              <div className="price-predicted">{fmtVND(predictedND)}</div>
               <div className="price-label" style={{ marginTop: 8 }}>Tổng thay đổi dự kiến</div>
               <div className={`price-change ${isUp ? 'up' : 'down'}`}>
-                {isUp ? '↗' : '↘'} {isUp ? '+' : ''}{(cum5Return * 100).toFixed(2)}%
+                {isUp ? '↗' : '↘'} {isUp ? '+' : ''}{(cumReturn * 100).toFixed(2)}%
               </div>
             </div>
           )}
@@ -287,8 +308,8 @@ export default function PredictPrice() {
               <div className="chart-block-title">Biểu đồ dự đoán giá</div>
               <div className="chart-block-sub">
                 {result?.historical_prices?.length > 0
-                  ? `${result.historical_prices.length} ngày thực tế (nét liền) · 5 ngày dự báo (nét đứt vàng)`
-                  : '20 ngày lịch sử (nét liền) · 5 ngày dự báo (nét đứt vàng)'
+                  ? `${result.historical_prices.length} ngày thực tế (nét liền) · ${forecastDays} ngày dự báo (nét đứt vàng)`
+                  : `20 ngày lịch sử (nét liền) · ${forecastDays} ngày dự báo (nét đứt vàng)`
                 }
               </div>
               <ResponsiveContainer width="100%" height={260}>
@@ -342,7 +363,7 @@ export default function PredictPrice() {
             <div className="chart-block">
               <div className="chart-block-title">Biến động dự báo theo ngày</div>
               <div className="chart-block-sub">
-                Log-return từng ngày trong quỹ đạo 5 ngày — xanh tăng, vàng giảm
+                Log-return từng ngày trong quỹ đạo {forecastDays} ngày — xanh tăng, vàng giảm
               </div>
               <ResponsiveContainer width="100%" height={180}>
                 <BarChart data={returnBars} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
