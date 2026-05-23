@@ -35,7 +35,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.api.config import (
     MODEL_PATHS, DATA_PATHS, API_CONFIG,
     SUPPORTED_TICKERS_T3, SUPPORTED_TICKERS_T4, KNOWN_TICKERS,
-    CSV_DIR,
+    DATA_DIR,
 )
 from src.api.models import (
     PredictionRequest, SignalRequest, PortfolioRequest,
@@ -250,7 +250,7 @@ async def predict_price(request: PredictionRequest):
         # Last 30 trading days from the per-ticker OHLCV CSV
         try:
             ohlcv = pd.read_csv(
-                CSV_DIR / f"{ticker}_ohlcv.csv", parse_dates=["date"]
+                DATA_DIR / f"{ticker}_ohlcv.csv", parse_dates=["date"]
             ).sort_values("date").tail(30)
             historical_prices = [
                 {
