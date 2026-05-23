@@ -10,3 +10,4 @@ Supporting experiments and analysis not part of the main task pipeline.
 | `6-industry-analysis.ipynb` | Sector/industry correlation study |
 | `10-sentiment_analysis_final_project-vnstock.ipynb` | Extended sentiment pipeline with vnstock |
 | `4-vnstock.ipynb` | vnstock API exploration scratch |
+
