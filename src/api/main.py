@@ -153,11 +153,25 @@ def _decode_prediction(reg_pred, cls_pred, current_price: float, target_scaler=N
     if target_scaler is not None:
         try:
             reg_pred = target_scaler.inverse_transform(reg_pred)
-        except Exception as e:
-            print(f"  ⚠ target_scaler.inverse_transform failed ({e}), using raw output")
+        except Exception:
+            # Shape mismatch: scaler has more features than model output (e.g. 5 vs 1)
+            # Manually unscale using the last (longest-horizon) scaler column
+            try:
+                col    = target_scaler.n_features_in_ - 1
+                center = getattr(target_scaler, "center_",
+                                 getattr(target_scaler, "mean_", [0] * (col + 1)))[col]
+                scale  = target_scaler.scale_[col]
+                reg_pred = reg_pred * scale + center
+            except Exception as e2:
+                print(f"  ⚠ manual unscale failed ({e2}), using raw output")
 
     raw          = reg_pred[0]
     pred_returns = raw.tolist() if hasattr(raw, "tolist") else [float(raw)]
+
+    # Model outputs single cumulative n-day return → split into 5 equal daily steps
+    if len(pred_returns) == 1:
+        daily_r      = pred_returns[0] / 5
+        pred_returns = [daily_r] * 5
 
     pred_prices: list = []
     price = current_price
@@ -219,11 +233,10 @@ async def list_tickers():
           tags=["Prediction"])
 async def predict_price(request: PredictionRequest):
     """
-    Predict next-step price trajectory.
+    Predict 5-day price trajectory using live market features.
 
-    Branch 1 (27 known tickers): reads pre-computed master_features → <1 s.
-    Branch 2 (any other ticker): fetches live OHLCV from yfinance,
-      computes 25 indicators on-the-fly, scales → ~3-5 s.
+    Primary: fetches live OHLCV via yfinance, computes 25 indicators → ~3-5 s.
+    Fallback (27 known tickers): pre-computed master_features if live fetch fails.
     """
     ticker   = request.ticker.upper()
     n_days   = request.n_days_back
@@ -233,71 +246,53 @@ async def predict_price(request: PredictionRequest):
     if model is None:
         raise HTTPException(503, "Prediction model not available")
 
-    # ── Branch 1: pre-computed ────────────────────────────────
-    if is_known:
-        X = _get_precomputed_features(ticker, n_days)
+    scaler  = MODELS.get("task4_scaler")
+    live_ok = False
 
-        df       = DATA["master_features"]
-        df_ticker = df[df["ticker"] == ticker].sort_values("date")
-        last_row  = df_ticker.iloc[-1]
+    # ── Always try live features first (freshest market data) ────
+    if scaler is not None:
+        try:
+            X, raw_price, last_date = build_live_features(ticker, scaler, n_days)
+            current_price = raw_price if raw_price >= 1000 else raw_price * 1000
+            data_source   = "live-yfinance"
+            model_label   = "MTL_T4_Live"
+            live_ok       = True
+        except Exception as e:
+            print(f"  ⚠ live features failed for {ticker}: {e}")
+
+    # ── Pre-computed fallback (known tickers only) ────────────────
+    if not live_ok:
+        if not is_known:
+            raise HTTPException(
+                503,
+                f"Live data unavailable for '{ticker}' and no pre-computed data exists.",
+            )
+        X = _get_precomputed_features(ticker, n_days)
+        df_t      = DATA["master_features"]
+        df_t      = df_t[df_t["ticker"] == ticker].sort_values("date")
+        last_row  = df_t.iloc[-1]
         csv_price = float(last_row["close"])
         if csv_price < 1000:
             csv_price *= 1000
-        last_date   = str(last_row["date"].date())
-        data_source = "pre-computed"
-        model_label = "MTL_T4_Specialized"
+        last_date     = str(last_row["date"].date())
+        current_price = csv_price
+        data_source   = "pre-computed"
+        model_label   = "MTL_T4_Specialized"
 
-        # Last 30 trading days from the per-ticker OHLCV CSV
-        try:
-            ohlcv = pd.read_csv(
-                DATA_DIR / f"{ticker}_ohlcv.csv", parse_dates=["date"]
-            ).sort_values("date").tail(30)
-            historical_prices = [
-                {
-                    "date" : str(row["date"].date()),
-                    "price": round(float(row["close"])),
-                }
-                for _, row in ohlcv.iterrows()
-            ]
-        except Exception:
-            historical_prices = []
-
-        # Fetch live current price so chart reflects today's market
-        try:
-            live_df = yf.download(
-                f"{ticker}.VN", period="5d",
-                auto_adjust=True, progress=False, timeout=10,
-            )
-            if not live_df.empty:
-                if isinstance(live_df.columns, pd.MultiIndex):
-                    live_df.columns = live_df.columns.get_level_values(0)
-                live_close = float(live_df["Close"].iloc[-1])
-                current_price = live_close if live_close >= 1000 else live_close * 1000
-                last_date = str(live_df.index[-1].date())
-            else:
-                current_price = csv_price
-        except Exception:
-            current_price = csv_price
-
-
-    # ── Branch 2: live fetch ──────────────────────────────────
-    else:
-        scaler = MODELS.get("task4_scaler")
-        if scaler is None:
-            raise HTTPException(503, "Feature scaler not available")
-        try:
-            X, raw_price, last_date = build_live_features(
-                ticker, scaler, n_days
-            )
-        except ValueError as exc:
-            raise HTTPException(400, str(exc))
-        except Exception as exc:
-            raise HTTPException(
-                503, f"Live data fetch failed for '{ticker}': {exc}"
-            )
-        current_price     = raw_price if raw_price >= 1000 else raw_price * 1000
-        data_source       = "live-yfinance"
-        model_label       = "MTL_T4_Live"
+    # ── Historical prices from per-ticker OHLCV CSV ───────────────
+    try:
+        ohlcv = pd.read_csv(DATA_DIR / f"{ticker}_ohlcv.csv")
+        ohlcv.columns = [c.lower().strip() for c in ohlcv.columns]
+        if "date" not in ohlcv.columns:
+            ohlcv = ohlcv.reset_index()
+            ohlcv.columns = [c.lower().strip() for c in ohlcv.columns]
+        ohlcv["date"] = pd.to_datetime(ohlcv["date"])
+        ohlcv = ohlcv.sort_values("date").tail(30)
+        historical_prices = [
+            {"date": str(row["date"].date()), "price": round(float(row["close"]))}
+            for _, row in ohlcv.iterrows()
+        ]
+    except Exception:
         historical_prices = []
 
     reg_pred, cls_pred = model.predict(X, verbose=0)
