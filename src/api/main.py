@@ -43,6 +43,7 @@ from src.api.models import (
     PortfolioResponse, PortfolioStock,
     ProfitabilityResponse, ProfitabilityScore,
     RiskResponse, RiskScore, HealthResponse,
+    BacktestSummary, EquityPoint, BacktestEquityResponse,
 )
 from src.api.feature_pipeline import build_live_features
 
@@ -489,3 +490,51 @@ async def get_risk_scores():
         for _, row in DATA["risk_scores"].iterrows()
     ]
     return RiskResponse(scores=scores, total_tickers=len(scores))
+
+
+@app.get("/backtest/price",
+         response_model=BacktestEquityResponse,
+         tags=["Backtest"])
+async def get_price_backtest():
+    """
+    Walk-forward backtest results for the MTL T4 price prediction model.
+    Returns equity curve (strategy vs VN benchmark) and summary metrics.
+    """
+    bt  = DATA.get("price_backtest")
+    eq  = DATA.get("equity_curve")
+    if bt is None or eq is None:
+        raise HTTPException(503, "Backtest data not available")
+
+    buy_mask = bt["signal"] == "BUY"
+
+    summary = BacktestSummary(
+        total_predictions = len(bt),
+        da_1d             = round(float(bt["dir_correct_1d"].mean()), 4),
+        da_5d             = round(float(bt["dir_correct_5d"].dropna().mean()), 4),
+        mae_1d            = round(float(bt["mae_1d"].mean()), 6),
+        mae_5d            = round(float(bt["mae_5d"].dropna().mean()), 6),
+        buy_signal_pct    = round(float(buy_mask.mean()), 4),
+        sharpe_strategy   = round(float(
+            eq["strat_return"].mean() / eq["strat_return"].std() * (252 ** 0.5)
+        ), 3) if eq["strat_return"].std() > 0 else 0.0,
+        sharpe_benchmark  = round(float(
+            eq["bench_return"].mean() / eq["bench_return"].std() * (252 ** 0.5)
+        ), 3) if eq["bench_return"].std() > 0 else 0.0,
+        cum_return_strat  = round(float(eq["strat_cum"].iloc[-1]), 4),
+        cum_return_bench  = round(float(eq["bench_cum"].iloc[-1]), 4),
+        date_range_start  = str(eq["date"].iloc[0]),
+        date_range_end    = str(eq["date"].iloc[-1]),
+    )
+
+    equity_curve = [
+        EquityPoint(
+            date         = str(row["date"]),
+            strat_return = round(float(row["strat_return"]), 6),
+            bench_return = round(float(row["bench_return"]), 6),
+            strat_cum    = round(float(row["strat_cum"]),    4),
+            bench_cum    = round(float(row["bench_cum"]),    4),
+        )
+        for _, row in eq.iterrows()
+    ]
+
+    return BacktestEquityResponse(summary=summary, equity_curve=equity_curve)

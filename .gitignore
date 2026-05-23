@@ -11,6 +11,8 @@ venv/
 data/**
 !data/**/
 !data/**/.gitkeep
+!data/vietnam/task4_price_backtest.csv
+!data/vietnam/task4_equity_curve.csv
 outputs/**
 !outputs/**/
 !outputs/**/.gitkeep

@@ -34,6 +34,8 @@ DATA_PATHS = {
     'signals'        : DATA_DIR / 'task3_signals_production.csv',
     'portfolio'      : DATA_DIR / 'task4_portfolio_composition_all.csv',
     'master_features': DATA_DIR / 'task4_master_features.csv',
+    'price_backtest' : DATA_DIR / 'task4_price_backtest.csv',
+    'equity_curve'   : DATA_DIR / 'task4_equity_curve.csv',
 }
 
 # API config

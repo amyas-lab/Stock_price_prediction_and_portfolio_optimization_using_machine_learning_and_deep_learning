@@ -1,11 +1,19 @@
-import { useState } from 'react'
-import { BarChartIcon, TrendUpIcon, ShieldIcon, TargetIcon, LeafIcon } from '../components/Icons.jsx'
+import { useState, useEffect } from 'react'
+import { BarChartIcon, TrendUpIcon, ShieldIcon, TargetIcon, LeafIcon, ClockIcon, PieIcon } from '../components/Icons.jsx'
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  Legend, ResponsiveContainer,
+} from 'recharts'
+
+const API_BASE = import.meta.env.VITE_API_URL || 'https://amyas-lab-investnature.hf.space'
 
 const TABS = [
   { id: 'journey',      label: 'Hành trình R&D',      Icon: TrendUpIcon  },
   { id: 'architecture', label: 'Kiến trúc MTL',        Icon: BarChartIcon },
   { id: 'signal',       label: 'Tín hiệu XGBoost',    Icon: ShieldIcon   },
   { id: 'portfolio',    label: 'Tối ưu danh mục',      Icon: TargetIcon   },
+  { id: 'features',     label: '25 Chỉ số kỹ thuật',  Icon: PieIcon      },
+  { id: 'backtest',     label: 'Walk-Forward Backtest', Icon: ClockIcon    },
 ]
 
 /* ── Reusable atoms ───────────────────────────────────────── */
@@ -434,6 +442,184 @@ function TabPortfolio() {
   )
 }
 
+/* ── Tab: 25 Chỉ số ──────────────────────────────────────── */
+
+function TabFeatures() {
+  return (
+    <div>
+      <SectionTitle>Tại sao chỉ dùng 25 chỉ số kỹ thuật?</SectionTitle>
+      <Sub>
+        Câu trả lời đến từ chính dữ liệu: XGBoost với 52 đặc trưng (kỹ thuật + cơ bản + sentiment)
+        chứng minh rằng <strong>chỉ số kỹ thuật + VNIndex chiếm toàn bộ sức mạnh dự đoán</strong>.
+        Fundamental và Sentiment gần như bằng 0 — bỏ đi để giảm noise và overfitting.
+      </Sub>
+
+      <div className="card" style={{ marginBottom: 20, background: '#FFFBF2', border: '1px solid #E8D5A0' }}>
+        <div style={{ fontWeight: 700, color: 'var(--gold-dark)', marginBottom: 10, fontSize: 15 }}>
+          XGBoost Feature Importance — 52 đặc trưng
+        </div>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
+          Biểu đồ dưới đây từ notebook nghiên cứu: các chỉ số VNIndex (vni_*) và kỹ thuật (EMA, MACD, RSI…)
+          nằm đầu bảng. P/E, ROE, sentiment score gần bằng không — bằng chứng rõ ràng nhất.
+        </p>
+        <img
+          src="/notebook/feature_importance_xgb.png"
+          alt="XGBoost Feature Importance"
+          style={{ width: '100%', borderRadius: 8, border: '1px solid var(--border)' }}
+        />
+      </div>
+
+      <KpiRow items={[
+        { label: 'Chỉ số VNIndex', value: '12/25', sub: 'market context' },
+        { label: 'Chỉ số kỹ thuật', value: '13/25', sub: 'price & volume' },
+        { label: 'Fundamental', value: '≈ 0', color: '#999', sub: 'bị loại bỏ' },
+        { label: 'Sentiment', value: '≈ 0', color: '#999', sub: 'bị loại bỏ' },
+      ]} />
+
+      <div className="card" style={{ marginBottom: 20 }}>
+        <div style={{ fontWeight: 700, color: 'var(--gold-dark)', marginBottom: 10, fontSize: 15 }}>
+          Signal Classifier — Top features (Task 3 XGBoost)
+        </div>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
+          Mô hình tín hiệu giao dịch còn một lớp đặc trưng nữa: <strong>đầu ra của MTL</strong> (p_up, p_down,
+          mtl_conviction) — xác suất từ neural net trở thành feature cho XGBoost. Cách kết hợp hai loại
+          mô hình (ensemble stacking) để tăng độ tin cậy.
+        </p>
+        <img
+          src="/notebook/feature_importance_signal.png"
+          alt="Signal Classifier Feature Importance"
+          style={{ width: '100%', borderRadius: 8, border: '1px solid var(--border)' }}
+        />
+      </div>
+
+      <div className="card" style={{ background: '#F0F7F0', border: '1px solid #B5D5B5' }}>
+        <div style={{ fontWeight: 700, color: '#2E7D32', marginBottom: 8, fontSize: 14 }}>
+          Triết lý Feature Engineering
+        </div>
+        <p style={{ fontSize: 13.5, color: 'var(--text-secondary)', lineHeight: 1.8, margin: 0 }}>
+          Thị trường chứng khoán Việt Nam ở giai đoạn phát triển — <strong>thông tin kỹ thuật phản ánh
+          hành vi đám đông nhanh hơn nhiều</strong> so với báo cáo tài chính (công bố theo quý, dễ trễ 3–6 tháng).
+          VNIndex là "nhịp đập" của cả thị trường — 27 cổ phiếu blue-chip đều bị ảnh hưởng bởi xu hướng
+          vĩ mô này, nên 12 chỉ số VNI là context không thể thiếu.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+/* ── Tab: Backtest ────────────────────────────────────────── */
+
+const CUSTOM_TOOLTIP = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null
+  return (
+    <div style={{
+      background: 'var(--bg-card)', border: '1px solid var(--border)',
+      borderRadius: 8, padding: '10px 14px', fontSize: 12,
+    }}>
+      <div style={{ color: 'var(--text-muted)', marginBottom: 4 }}>{label}</div>
+      {payload.map(p => (
+        <div key={p.dataKey} style={{ color: p.color, fontWeight: 600 }}>
+          {p.name}: {(p.value * 100).toFixed(1)}%
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function TabBacktest() {
+  const [data, setData]     = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError]   = useState(null)
+
+  useEffect(() => {
+    fetch(`${API_BASE}/backtest/price`)
+      .then(r => r.ok ? r.json() : Promise.reject(r.statusText))
+      .then(d => { setData(d); setLoading(false) })
+      .catch(e => { setError(String(e)); setLoading(false) })
+  }, [])
+
+  if (loading) return (
+    <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
+      Đang tải dữ liệu backtest…
+    </div>
+  )
+  if (error) return (
+    <div style={{ textAlign: 'center', padding: 40, color: '#C62828' }}>
+      Không thể tải backtest: {error}
+    </div>
+  )
+
+  const { summary, equity_curve } = data
+
+  // Downsample to ~200 points for chart performance
+  const step = Math.max(1, Math.floor(equity_curve.length / 200))
+  const chartData = equity_curve.filter((_, i) => i % step === 0).map(p => ({
+    date:  p.date.slice(0, 7),
+    strat: p.strat_cum,
+    bench: p.bench_cum,
+  }))
+
+  const fmtPct = v => `${(v * 100).toFixed(1)}%`
+  const green = '#2D6A4F'
+  const gold  = '#C4A265'
+
+  return (
+    <div>
+      <SectionTitle>Walk-Forward Backtest — MTL T4</SectionTitle>
+      <Sub>
+        Kiểm định mô hình trên <strong>{summary.total_predictions.toLocaleString()} dự đoán</strong> từ{' '}
+        {summary.date_range_start?.slice(0, 7)} đến {summary.date_range_end?.slice(0, 7)}.
+        Cửa sổ 20 ngày trượt, dự đoán 5 ngày tiếp theo — không dùng dữ liệu tương lai (look-ahead bias = 0).
+      </Sub>
+
+      <KpiRow items={[
+        { label: 'Directional Accuracy 5d', value: fmtPct(summary.da_5d),  color: green, sub: 'vs 50% ngẫu nhiên' },
+        { label: 'Sharpe (chiến lược)',     value: summary.sharpe_strategy, color: gold  },
+        { label: 'Sharpe (benchmark)',      value: summary.sharpe_benchmark, color: 'var(--text-secondary)' },
+        { label: 'Tín hiệu BUY',           value: fmtPct(summary.buy_signal_pct), sub: 'độ chọn lọc cao' },
+      ]} />
+
+      <KpiRow items={[
+        { label: 'Lợi nhuận tích lũy (chiến lược)', value: fmtPct(summary.cum_return_strat), color: green },
+        { label: 'Lợi nhuận tích lũy (benchmark)',  value: fmtPct(summary.cum_return_bench), color: 'var(--text-secondary)' },
+        { label: 'DA 1 ngày', value: fmtPct(summary.da_1d), sub: 'độ khó nhất' },
+        { label: 'MAE 1 ngày', value: summary.mae_1d.toFixed(4), sub: 'log-return error' },
+      ]} />
+
+      <div className="card" style={{ marginBottom: 20 }}>
+        <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', marginBottom: 16 }}>
+          Đường vốn tích lũy (2020–2026)
+        </div>
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <XAxis dataKey="date" tick={{ fontSize: 11 }} tickLine={false} />
+            <YAxis tickFormatter={v => `${(v * 100).toFixed(0)}%`} tick={{ fontSize: 11 }} tickLine={false} />
+            <Tooltip content={<CUSTOM_TOOLTIP />} />
+            <Legend wrapperStyle={{ fontSize: 13 }} />
+            <Line type="monotone" dataKey="strat" name="Chiến lược BUY"
+              stroke={green} dot={false} strokeWidth={2} />
+            <Line type="monotone" dataKey="bench" name="Benchmark"
+              stroke={gold} dot={false} strokeWidth={1.5} strokeDasharray="4 3" />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div className="card" style={{ background: '#FFFBF2', border: '1px solid #E8D5A0' }}>
+        <div style={{ fontWeight: 700, color: 'var(--gold-dark)', marginBottom: 8, fontSize: 14 }}>
+          Phương pháp luận
+        </div>
+        <p style={{ fontSize: 13.5, color: 'var(--text-secondary)', lineHeight: 1.8, margin: 0 }}>
+          <strong>Walk-forward validation</strong>: cửa sổ 20 ngày trượt qua toàn bộ lịch sử —
+          mô hình không bao giờ nhìn thấy dữ liệu tương lai. Chiến lược: mỗi ngày equal-weight tất cả
+          cổ phiếu có tín hiệu BUY (ngưỡng 55%). Benchmark: equal-weight toàn bộ 27 cổ phiếu.
+          Sharpe annualized = μ/σ × √252.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 /* ── Main Page ────────────────────────────────────────────── */
 
 export default function ModelInsights() {
@@ -444,6 +630,8 @@ export default function ModelInsights() {
     architecture: <TabArchitecture />,
     signal:       <TabSignal />,
     portfolio:    <TabPortfolio />,
+    features:     <TabFeatures />,
+    backtest:     <TabBacktest />,
   }
 
   return (

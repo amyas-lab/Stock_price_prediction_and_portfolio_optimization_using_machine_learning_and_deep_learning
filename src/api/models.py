@@ -132,3 +132,32 @@ class HealthResponse(BaseModel):
     supported_tickers_t3: List[str]
     supported_tickers_t4: List[str]
     version         : str
+
+
+# ── Backtest Schemas ──────────────────────────────────────────
+class BacktestSummary(BaseModel):
+    total_predictions : int
+    da_1d             : float = Field(description="Directional accuracy 1-day")
+    da_5d             : float = Field(description="Directional accuracy 5-day")
+    mae_1d            : float
+    mae_5d            : float
+    buy_signal_pct    : float
+    sharpe_strategy   : float
+    sharpe_benchmark  : float
+    cum_return_strat  : float
+    cum_return_bench  : float
+    date_range_start  : str
+    date_range_end    : str
+
+
+class EquityPoint(BaseModel):
+    date            : str
+    strat_return    : float
+    bench_return    : float
+    strat_cum       : float
+    bench_cum       : float
+
+
+class BacktestEquityResponse(BaseModel):
+    summary         : BacktestSummary
+    equity_curve    : List[EquityPoint]
