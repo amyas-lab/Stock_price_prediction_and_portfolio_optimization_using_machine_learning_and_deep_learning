@@ -727,7 +727,7 @@ export default function PredictPrice() {
                           Độ tự tin: {(signal.conviction * 100).toFixed(1)}%
                         </div>
                       </div>
-                      <div style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted)' }}>
+                      <div style={{ textAlign: 'left', fontSize: 11, color: 'var(--text-muted)' }}>
                         <div>Xác suất MUA: {(signal.p_buy * 100).toFixed(0)}%</div>
                         <div>Xác suất BÁN: {(signal.p_sell * 100).toFixed(0)}%</div>
                         <div>Xác suất GIỮ: {(signal.p_hold * 100).toFixed(0)}%</div>
@@ -743,10 +743,8 @@ export default function PredictPrice() {
                         border: '1.5px solid #EDE5D8',
                         background: '#F9F6F1',
                         color: 'var(--text-secondary)',
-                        fontSize: 12, fontWeight: 600,
+                        fontSize: 11, fontWeight: 600,
                         whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
                         marginBottom: 14,
                         transition: 'background 0.15s',
                       }}
