@@ -604,9 +604,9 @@ function TabBacktest() {
           Trong thị trường tài chính, việc kiểm tra mô hình bằng cách xáo trộn dữ liệu ngẫu nhiên là một
           sai lầm nghiêm trọng vì nó sẽ làm rò rỉ dữ liệu của tương lai vào quá khứ.<br /><br />
           <strong>Walk-Forward Backtest</strong> (Kiểm thử tịnh tiến thời gian) là phương pháp mô phỏng
-          giao dịch chuẩn mực nhất của các quỹ đầu tư định lượng. Hệ thống đóng băng mô hình AI tại một
+          giao dịch chuẩn mực nhất của các quỹ đầu tư định lượng. Hệ thống đóng băng mô hình MTL-T4 tại một
           thời điểm, sau đó tịnh tiến từng ngày dọc theo lịch sử để kiểm tra: nếu trong quá khứ chúng ta
-          thực sự xuống tiền theo tín hiệu của AI thì kết quả tài sản sẽ ra sao.
+          thực sự xuống tiền theo tín hiệu của mô hình thì kết quả tài sản sẽ ra sao.
         </p>
       </div>
 
@@ -629,7 +629,7 @@ function TabBacktest() {
             { label: 'Dự báo quỹ đạo 5 ngày', color: '#9E7E45', bg: '#FFF8E1',
               body: 'Từ 20 phiên lịch sử đó, mô hình dự phóng liên tục tỷ suất sinh lời lũy kế cho 5 ngày kế tiếp (T+1 đến T+5).' },
             { label: 'Ngưỡng kích hoạt lệnh (Threshold = 0.55)', color: '#7B5EA7', bg: '#F3EEF9',
-              body: 'Chỉ khi nhánh phân loại của AI đạt độ tự tin (conviction) từ 55.0% trở lên, tín hiệu MUA hoặc BÁN mới được phát ra. Nếu dưới ngưỡng, hệ thống đưa về trạng thái GIỮ (HOLD) để bảo vệ vốn.' },
+              body: 'Chỉ khi nhánh phân loại của MTL-T4 đạt độ tự tin (conviction) từ 55.0% trở lên, tín hiệu MUA hoặc BÁN mới được phát ra. Nếu dưới ngưỡng, hệ thống đưa về trạng thái GIỮ (HOLD) để bảo vệ vốn.' },
           ].map(item => (
             <div key={item.label} style={{
               display: 'flex', gap: 12, padding: '10px 12px',
@@ -646,26 +646,61 @@ function TabBacktest() {
       </div>
 
       {/* ── Metrics grid (ordered: accuracy → error → activity → returns → risk-adj) ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 20 }}>
-        {[
-          { label: 'DA Ngắn hạn (1d)',              value: fmtPct(summary.da_1d),            color: '#5B7FA6',              bg: '#E8F0FB',          sub: 'Độ khó nhất' },
-          { label: 'DA Trung hạn (5d)',              value: fmtPct(summary.da_5d),            color: green,                  bg: '#E8F5E9',          sub: 'vs 50% ngẫu nhiên' },
-          { label: 'MAE 1 ngày',                    value: summary.mae_1d.toFixed(4),         color: '#9E7E45',              bg: '#FFF8E1',          sub: 'log-return error' },
-          { label: 'Tín hiệu BUY',                  value: fmtPct(summary.buy_signal_pct),   color: '#7B5EA7',              bg: '#F3EEF9',          sub: 'độ chọn lọc cao' },
-          { label: 'Lợi nhuận tích lũy (chiến lược)', value: fmtPct(summary.cum_return_strat), color: green,                bg: '#E8F5E9',          sub: 'Chiến lược AI' },
-          { label: 'Lợi nhuận tích lũy (benchmark)', value: fmtPct(summary.cum_return_bench),  color: 'var(--text-secondary)', bg: 'var(--bg-card)', sub: 'Thị trường chung' },
-          { label: 'Sharpe (chiến lược)',            value: summary.sharpe_strategy,           color: gold,                   bg: '#FFFBF2',          sub: 'lợi nhuận/rủi ro' },
-          { label: 'Sharpe (benchmark)',             value: summary.sharpe_benchmark,          color: 'var(--text-muted)',    bg: 'var(--bg-card)',   sub: 'Buy & Hold 27 mã' },
-        ].map(({ label, value, color, bg, sub }) => (
-          <div key={label} style={{
-            background: bg, border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px',
-          }}>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>{label}</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color }}>{value}</div>
-            {sub && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{sub}</div>}
-          </div>
-        ))}
-      </div>
+      {(() => {
+        const metrics = [
+          { key: 'da1d',   label: 'DA Ngắn hạn (1d)',              value: fmtPct(summary.da_1d),            color: '#5B7FA6', bg: '#E8F0FB', sub: 'dự đoán hướng T+1',
+            explain: 'Directional Accuracy 1 ngày — tỷ lệ MTL-T4 đoán đúng chiều tăng/giảm ngay trong phiên T+1. Đây là bài toán khó nhất vì biến động trong 24h phần lớn là nhiễu (noise). 51% tốt hơn tung đồng xu nhưng không đủ để giao dịch đơn lẻ — cần kết hợp với DA-5d.' },
+          { key: 'da5d',   label: 'DA Trung hạn (5d)',              value: fmtPct(summary.da_5d),            color: green,     bg: '#E8F5E9', sub: 'ngưỡng ngẫu nhiên: 50%',
+            explain: 'Directional Accuracy 5 ngày — tỷ lệ đoán đúng chiều trong cả tuần giao dịch. Ngưỡng ngẫu nhiên là 50% (tung đồng xu). MTL-T4 đạt 56.8%, vượt ngưỡng ngẫu nhiên +6.8 điểm % — nhờ bắt trọn các nhịp dịch chuyển dòng tiền trung hạn mà dao động 1 ngày che khuất.' },
+          { key: 'mae',    label: 'MAE 1 ngày',                    value: summary.mae_1d.toFixed(4),         color: '#9E7E45', bg: '#FFF8E1', sub: 'sai số log-return',
+            explain: 'Mean Absolute Error (sai số tuyệt đối trung bình). MAE = 0.0255 nghĩa là mô hình sai lệch trung bình ~2.55% log-return mỗi phiên. Dùng để xác định vùng giá kỳ vọng chứ không phải điểm giá chính xác — luôn đặt stop-loss 3–5% để bù biên độ sai số này.' },
+          { key: 'buy',    label: 'Tín hiệu BUY',                  value: fmtPct(summary.buy_signal_pct),   color: '#7B5EA7', bg: '#F3EEF9', sub: 'trong tổng số phiên',
+            explain: '9.7% có nghĩa là trên tổng số phiên giao dịch, chỉ chưa đến 1/10 số phiên được phát tín hiệu MUA. MTL-T4 cực kỳ khắt khe — chỉ giải ngân khi conviction ≥ 55%. Đây là ưu điểm: tránh giao dịch ồn ào theo cảm tính, chỉ vào lệnh khi có cơ sở chắc chắn.' },
+          { key: 'cumS',   label: 'Lợi nhuận tích lũy (MTL-T4)',   value: fmtPct(summary.cum_return_strat), color: green,     bg: '#E8F5E9', sub: 'Equal-weight BUY signals',
+            explain: 'Tổng lợi nhuận tích lũy khi đầu tư theo tín hiệu MTL-T4 trong 6 năm (2020–2026). Equal-weight: mỗi phiên có N mã BUY thì vốn chia đều cho N mã. 157.0% tương đương vốn tăng gấp 2.57 lần sau 6 năm.' },
+          { key: 'cumB',   label: 'Lợi nhuận tích lũy (benchmark)', value: fmtPct(summary.cum_return_bench), color: 'var(--text-secondary)', bg: 'var(--bg-card)', sub: 'Nắm giữ 27 mã từ đầu',
+            explain: 'Benchmark = mua và nắm giữ (Buy & Hold) toàn bộ 27 mã ngay từ đầu, không cần dự đoán. 144.4% là mức tăng trưởng thụ động của rổ blue-chip HOSE trong 6 năm. MTL-T4 vượt mức này (+12.6 điểm %) nhờ bộ lọc chủ động.' },
+          { key: 'shS',    label: 'Sharpe (MTL-T4)',                value: summary.sharpe_strategy,           color: gold,      bg: '#FFFBF2', sub: 'lợi nhuận/rủi ro',
+            explain: 'Sharpe = μ/σ × √252. MTL-T4 đạt 0.816 — nghĩa là cứ 1 đơn vị rủi ro (độ lệch chuẩn) chịu đựng, mô hình sinh ra 0.816 đơn vị lợi nhuận. Cao hơn benchmark (0.782) chứng minh mô hình không chỉ lời nhiều hơn mà còn hiệu quả hơn về chất lượng lợi nhuận/rủi ro.' },
+          { key: 'shB',    label: 'Sharpe (benchmark)',             value: summary.sharpe_benchmark,          color: 'var(--text-muted)', bg: 'var(--bg-card)', sub: 'Nắm giữ 27 mã từ đầu',
+            explain: 'Sharpe Ratio của chiến lược Buy & Hold toàn bộ 27 mã. 0.782 là mức tham chiếu thị trường — mua hết 27 mã từ đầu và không làm gì suốt 6 năm. MTL-T4 vượt qua (0.816) nhờ bộ lọc conviction chủ động ngắt vị thế khi thị trường xấu.' },
+        ]
+        return (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: openSec === 'metric' ? 0 : 20 }}>
+              {metrics.map(({ key, label, value, color, bg, sub }) => (
+                <div
+                  key={key}
+                  onClick={() => setOpenSec(prev => prev === `m_${key}` ? null : `m_${key}`)}
+                  style={{
+                    background: openSec === `m_${key}` ? '#FAF3E0' : bg,
+                    border: openSec === `m_${key}` ? '1.5px solid var(--gold-dark)' : '1px solid var(--border)',
+                    borderRadius: 12, padding: '14px 16px', cursor: 'pointer',
+                    transition: 'box-shadow 0.15s, transform 0.15s',
+                    boxShadow: openSec === `m_${key}` ? '0 4px 16px rgba(0,0,0,0.10)' : 'none',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.10)'; e.currentTarget.style.transform = 'translateY(-2px)' }}
+                  onMouseLeave={e => { e.currentTarget.style.boxShadow = openSec === `m_${key}` ? '0 4px 16px rgba(0,0,0,0.10)' : 'none'; e.currentTarget.style.transform = 'translateY(0)' }}
+                >
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>{label}</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color }}>{value}</div>
+                  {sub && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{sub}</div>}
+                  <div style={{ fontSize: 10, color: 'var(--gold-dark)', marginTop: 6, opacity: 0.7 }}>nhấp để xem giải thích</div>
+                </div>
+              ))}
+            </div>
+            {metrics.map(({ key, label, explain }) => openSec === `m_${key}` && (
+              <div key={key} style={{
+                padding: '14px 16px', background: '#FFFBF2', border: '1.5px solid var(--gold-dark)',
+                borderTop: 'none', borderRadius: '0 0 12px 12px', marginBottom: 20,
+                fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.75,
+              }}>
+                <strong style={{ color: 'var(--gold-dark)' }}>{label}:</strong> {explain}
+              </div>
+            ))}
+          </>
+        )
+      })()}
 
       {/* ── Equity curve chart ── */}
       <div className="card" style={{ marginBottom: 20 }}>
@@ -691,22 +726,39 @@ function TabBacktest() {
       <Acc id="equity" title="📈 Cách tính đường vốn tích lũy (Equity Curve) như thế nào?">
         <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>
           Đường vốn tích lũy không phải là đồ thị giá của một cổ phiếu, mà là đồ thị giả lập tài sản của một{' '}
-          <strong>Quỹ đầu tư ảo</strong> chạy bằng thuật toán:
+          <strong>Quỹ đầu tư ảo</strong> chạy bằng mô hình MTL-T4:
         </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
           {[
             { label: 'Hành động hàng ngày',
-              body: 'Vào cuối mỗi ngày giao dịch, hệ thống lọc ra tất cả các mã cổ phiếu trong rổ 27 mã HOSE có tín hiệu MUA (BUY) thỏa mãn độ tự tin ≥ 55.0%.' },
-            { label: 'Phân bổ vốn',
-              body: 'Số vốn hiện có được chia đều với tỷ trọng bằng nhau (Equal-weight) cho nhóm cổ phiếu được chọn.' },
-            { label: 'Tính toán Lợi nhuận (P&L)',
-              body: 'Lợi nhuận ngày hôm sau của chiến lược (strat_return) bằng trung bình cộng tỷ suất sinh lời thực tế từ các mã được chọn. Kết quả được nhân lũy kế theo thời gian (cumprod()) để vẽ nên đường màu xanh đậm.' },
+              body: 'Vào cuối mỗi ngày giao dịch T, hệ thống lọc ra tất cả các mã cổ phiếu trong rổ 27 mã HOSE có tín hiệu MUA (BUY) thỏa mãn độ tự tin ≥ 55.0%. Gọi tập hợp này là S(T).' },
+            { label: 'Phân bổ vốn — Equal-weight',
+              body: 'Số vốn hiện có được chia đều với tỷ trọng bằng nhau cho nhóm cổ phiếu được chọn: w_i = 1/|S(T)| với mọi i ∈ S(T). Nếu không có tín hiệu BUY nào, vốn nằm tiền mặt (return = 0).' },
+            { label: 'Tính toán lợi nhuận hàng ngày',
+              body: 'Lợi nhuận ngày T+1 của chiến lược bằng trung bình cộng log-return thực tế từ các mã được chọn. Kết quả nhân lũy kế để tạo đường vốn màu xanh đậm.' },
             { label: 'Đường Benchmark (Vàng nét đứt)',
-              body: 'Đại diện cho chiến lược "lười biếng" — chia đều vốn mua hết cả 27 mã ngay từ ngày đầu tiên và giữ nguyên cho đến hết 6 năm (Buy-and-Hold). Khoảng cách giữa đường xanh và đường vàng chính là giá trị thặng dư (Alpha) mà AI mang lại.' },
+              body: 'Chia đều vốn mua hết cả 27 mã ngay từ ngày đầu tiên và giữ nguyên cho đến hết 6 năm (Buy & Hold). Khoảng cách giữa đường xanh và đường vàng chính là giá trị thặng dư (Alpha) mà MTL-T4 mang lại.' },
           ].map((item, i) => (
             <div key={i} style={{ padding: '10px 12px', borderRadius: 8, background: '#F9F6F1', border: '1px solid var(--border)' }}>
               <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--gold-dark)', marginBottom: 4 }}>▸ {item.label}</div>
               <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{item.body}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Formulas */}
+        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>Công thức toán học</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {[
+            { label: 'Return chiến lược ngày T', formula: 'r_strat(T) = (1/|S(T)|) × Σ r_i(T+1)  ,  i ∈ S(T)' },
+            { label: 'Return benchmark ngày T',  formula: 'r_bench(T) = (1/27) × Σ r_i(T+1)  ,  i ∈ {toàn bộ 27 mã}' },
+            { label: 'Equity Curve MTL-T4',      formula: 'EC_strat(T) = ∏(t=1→T) [1 + r_strat(t)]' },
+            { label: 'Equity Curve Benchmark',   formula: 'EC_bench(T) = ∏(t=1→T) [1 + r_bench(t)]' },
+            { label: 'Alpha (giá trị thặng dư)', formula: 'α = EC_strat(T) − EC_bench(T)' },
+          ].map(f => (
+            <div key={f.label} style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 10, alignItems: 'center' }}>
+              <div style={{ fontSize: 11.5, color: 'var(--text-muted)', fontWeight: 600 }}>{f.label}</div>
+              <div style={{ background: '#1e1e1e', color: '#C4A265', borderRadius: 6, padding: '6px 12px', fontFamily: 'monospace', fontSize: 12 }}>{f.formula}</div>
             </div>
           ))}
         </div>
@@ -720,18 +772,21 @@ function TabBacktest() {
         <div style={{ background: '#F5F0E8', borderRadius: 8, padding: '10px 14px', fontFamily: 'monospace', fontSize: 13, marginBottom: 14, textAlign: 'center', color: 'var(--text-primary)' }}>
           Sharpe = (Lợi nhuận TB hàng ngày / Độ lệch chuẩn hàng ngày) × √252
         </div>
+        <div style={{ padding: '10px 12px', background: '#FFF8E1', borderRadius: 8, border: '1px solid #E8D5A033', marginBottom: 10, fontSize: 12.5, color: 'var(--text-secondary)' }}>
+          <strong style={{ color: '#9E7E45' }}>Buy & Hold (Benchmark) là gì?</strong> Chiến lược thụ động: mua toàn bộ 27 mã ngay từ ngày đầu tiên với tỷ trọng bằng nhau và không làm gì thêm suốt 6 năm. Đây là mức tham chiếu tối thiểu — nếu mô hình không vượt qua được thì không có giá trị.
+        </div>
         <div style={{ padding: '12px 14px', background: '#E8F5E9', borderRadius: 10, border: '1px solid #4A7C5F33', marginBottom: 12 }}>
           <div style={{ fontWeight: 700, fontSize: 12.5, color: '#2E7D32', marginBottom: 6 }}>
-            Sharpe Chiến lược ({summary.sharpe_strategy}) {'>'} Sharpe Benchmark ({summary.sharpe_benchmark})
+            Sharpe MTL-T4 ({summary.sharpe_strategy}) {'>'} Sharpe Benchmark ({summary.sharpe_benchmark})
           </div>
           <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-            Chiến lược của AI không chỉ ăn dày hơn về mặt phần trăm cuối kỳ ({fmtPct(summary.cum_return_strat)} {'>'} {fmtPct(summary.cum_return_bench)}),
+            MTL-T4 không chỉ ăn dày hơn về mặt phần trăm cuối kỳ ({fmtPct(summary.cum_return_strat)} {'>'} {fmtPct(summary.cum_return_bench)}),
             mà còn mang lại <strong>lợi nhuận trên một đơn vị rủi ro tốt hơn</strong>.
           </div>
         </div>
         <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.7, margin: 0 }}>
-          Đường vốn của AI chạy êm hơn, ít xuất hiện các pha sụt giảm tài sản kinh hoàng (Max Drawdown)
-          nhờ thuật toán chủ động ngắt vị thế, ôm tiền mặt đứng ngoài khi khối vĩ mô VN-Index báo xấu
+          Đường vốn của MTL-T4 chạy êm hơn, ít xuất hiện các pha sụt giảm tài sản kinh hoàng (Max Drawdown)
+          nhờ mô hình chủ động ngắt vị thế, ôm tiền mặt đứng ngoài khi khối vĩ mô VN-Index báo xấu
           (như đợt Bear Market cuối năm 2022).
         </p>
       </Acc>
