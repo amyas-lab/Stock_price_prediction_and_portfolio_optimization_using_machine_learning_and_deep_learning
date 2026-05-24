@@ -473,54 +473,33 @@ export default function Portfolio() {
         <div style={{ color: '#8A7E60', fontSize: 11, marginBottom: 10, letterSpacing: 1 }}>
           THIET LAP MOI TRUONG KIEM THU DINH LUONG
         </div>
-        {[
-          [
-            'Giai doan kiem dinh (Test Set)',
-            '24/01/2025 → 20/04/2026',
-            'Phan tach du lieu (Data Split)',
-            'Huan luyen (Offline): Lich su 2020 – 2024',
-          ],
-          [
-            'Bo quy tac nghiem ngat (Constraints)',
-            null,
-            '[Look-ahead bias = 0]  Khong ro ri hoac su dung du lieu tuong lai',
-            '[Cua so truot = 20 phien]  Do dai chuoi du lieu nap vao GRU Encoder',
-          ],
-          [
-            'Dong co kich hoat tin hieu (Execution Triggers)',
-            null,
-            '  Dau vao thuat toan : 25 chi so dong luong cau truc (OHLCV + Boi canh VN-Index)',
-            '  Nguong tu tin (Conviction) : >= 55.0%  (Ep mo hinh dut khoat ra lenh MUA/BAN)',
-          ],
-        ].map((block, bi) => (
-          <div key={bi} style={{
-            borderTop: bi === 0 ? 'none' : '1px solid #2E2A1E', paddingTop: bi === 0 ? 0 : 10,
-            marginTop: bi === 0 ? 0 : 10,
-          }}>
-            {block.map((line, li) => {
-              if (line === null) return null
-              const isBadge = line.startsWith('[')
-              const isHeader = li === 0
-              return (
-                <div key={li} style={{
-                  display: isHeader ? 'flex' : 'block',
-                  color: isHeader ? '#C4A265' : isBadge ? '#7EC8A0' : '#9E9070',
-                  fontWeight: isHeader ? 700 : 400,
-                  marginBottom: 3,
-                  gap: 24,
-                }}>
-                  {isHeader && bi === 0 ? (
-                    <>
-                      <span style={{ flex: 1 }}>{block[0]}<br /><span style={{ color: '#D4C090', fontWeight: 400 }}>{block[1]}</span></span>
-                      <span style={{ color: '#6E6040', margin: '0 8px' }}>|</span>
-                      <span style={{ flex: 1 }}>{block[2]}<br /><span style={{ color: '#D4C090', fontWeight: 400 }}>{block[3]}</span></span>
-                    </>
-                  ) : isHeader ? line : line}
-                </div>
-              )
-            })}
+
+        {/* Row 1: two columns */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 8, marginBottom: 10 }}>
+          <div>
+            <div style={{ color: '#C4A265', fontWeight: 700, marginBottom: 2 }}>Giai doan kiem dinh (Test Set)</div>
+            <div>24/01/2025 → 20/04/2026</div>
           </div>
-        ))}
+          <div style={{ color: '#3E3828', alignSelf: 'center' }}>|</div>
+          <div>
+            <div style={{ color: '#C4A265', fontWeight: 700, marginBottom: 2 }}>Phan tach du lieu (Data Split)</div>
+            <div>Huan luyen (Offline): Lich su 2020 – 2024</div>
+          </div>
+        </div>
+
+        {/* Row 2: constraints */}
+        <div style={{ borderTop: '1px solid #2E2A1E', paddingTop: 10, marginBottom: 10 }}>
+          <div style={{ color: '#C4A265', fontWeight: 700, marginBottom: 4 }}>Bo quy tac nghiem ngat (Constraints)</div>
+          <div style={{ color: '#7EC8A0', marginBottom: 2 }}>[Look-ahead bias = 0]  Khong ro ri hoac su dung du lieu tuong lai</div>
+          <div style={{ color: '#7EC8A0' }}>[Cua so truot = 20 phien]  Do dai chuoi du lieu nap vao GRU Encoder</div>
+        </div>
+
+        {/* Row 3: execution triggers */}
+        <div style={{ borderTop: '1px solid #2E2A1E', paddingTop: 10 }}>
+          <div style={{ color: '#C4A265', fontWeight: 700, marginBottom: 4 }}>Dong co kich hoat tin hieu (Execution Triggers)</div>
+          <div style={{ color: '#9E9070', marginBottom: 2 }}>• Dau vao thuat toan : 25 chi so dong luong cau truc (OHLCV + Boi canh VN-Index)</div>
+          <div style={{ color: '#9E9070' }}>• Nguong tu tin (Conviction) : &gt;= 55.0%  (Ep mo hinh dut khoat ra lenh MUA/BAN)</div>
+        </div>
       </div>
 
       {/* ── Backtest leaderboard ── */}
@@ -582,23 +561,19 @@ export default function Portfolio() {
               const d = PROFILE_DETAIL[profile]
               return (
                 <div style={{
-                  background: '#F5EFE6', borderRadius: 8, padding: '10px 12px', marginBottom: 14,
+                  background: '#F5EFE6', borderRadius: 8, padding: '9px 12px', marginBottom: 14,
                   borderLeft: `3px solid ${d.badgeColor}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'nowrap' }}>
-                    <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>{d.title}</span>
-                    <button
-                      onClick={() => setStratModal(profile)}
-                      style={{
-                        flexShrink: 0, fontSize: 11, fontWeight: 600, color: '#fff',
-                        background: d.badgeColor, border: 'none', borderRadius: 4,
-                        padding: '2px 8px', cursor: 'pointer', whiteSpace: 'nowrap',
-                      }}
-                    >{d.badge} ↗</button>
-                  </div>
-                  <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
-                    {PROFILE_DETAIL[profile].sections[0].body.slice(0, 120)}…
-                  </p>
+                  <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.3 }}>{d.title}</span>
+                  <button
+                    onClick={() => setStratModal(profile)}
+                    style={{
+                      flexShrink: 0, fontSize: 11, fontWeight: 600, color: '#fff',
+                      background: d.badgeColor, border: 'none', borderRadius: 4,
+                      padding: '3px 10px', cursor: 'pointer', whiteSpace: 'nowrap',
+                    }}
+                  >{d.badge} ↗</button>
                 </div>
               )
             })()}
@@ -676,31 +651,32 @@ export default function Portfolio() {
                           <div className="asset-name">{TICKER_NAMES[s.ticker] || s.sector}</div>
                         </div>
                       </div>
-                      <div className="asset-fields">
-                        <div>
-                          <div className="asset-field-label">Tỷ trọng (%)</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6, flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Tỷ trọng</span>
                           <input
                             type="number" min={0} max={100} step={0.1}
                             value={editWeights[s.ticker] ?? (s.weight * 100).toFixed(1)}
                             onChange={e => handleWeightChange(s.ticker, e.target.value)}
                             style={{
-                              width: 56, border: '1px solid #D4C090', borderRadius: 4,
-                              padding: '2px 4px', fontSize: 13, textAlign: 'center',
+                              width: 52, border: '1px solid #D4C090', borderRadius: 4,
+                              padding: '2px 4px', fontSize: 12, textAlign: 'center',
                               background: '#FAF7F2', color: 'var(--text-primary)',
                             }}
                           />
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>%</span>
                         </div>
-                        <div>
-                          <div className="asset-field-label">Điểm LN</div>
-                          <div className="asset-field-value" style={{ color: 'var(--green)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>LN</span>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--green)' }}>
                             {prof ? (prof.composite_score * 100).toFixed(0) + '/100' : '—'}
-                          </div>
+                          </span>
                         </div>
-                        <div>
-                          <div className="asset-field-label">Điểm RR</div>
-                          <div className="asset-field-value" style={{ color: 'var(--gold-dark)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>RR</span>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--gold-dark)' }}>
                             {rsk ? rsk.composite_risk.toFixed(1) + '/10' : s.risk_score.toFixed(1) + '/10'}
-                          </div>
+                          </span>
                         </div>
                       </div>
                     </div>
