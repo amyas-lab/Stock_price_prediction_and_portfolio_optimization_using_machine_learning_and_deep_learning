@@ -155,6 +155,116 @@ const FEATURE_GROUPS = [
   },
 ]
 
+// ── Execution Guide Modal ─────────────────────────────────────
+
+function ExecutionGuideModal({ onClose }) {
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
+        zIndex: 1001, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '16px',
+      }}
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <div style={{
+        background: '#FAF7F2', borderRadius: 16, width: '100%', maxWidth: 620,
+        maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+      }}>
+        {/* Header */}
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          padding: '18px 20px 14px', borderBottom: '1px solid #EDE5D8',
+          position: 'sticky', top: 0, background: '#FAF7F2', zIndex: 1,
+        }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>
+              Cẩm nang thực thi tín hiệu cho Trader
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+              Hướng dẫn thực chiến · Mô hình cập nhật theo đơn vị giờ
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none', border: '1px solid #EDE5D8', borderRadius: 8,
+              width: 32, height: 32, cursor: 'pointer', fontSize: 16,
+              color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >×</button>
+        </div>
+
+        <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+          {/* Why short-term */}
+          <div style={{ padding: 14, background: '#F3EEF9', borderRadius: 12, border: '1px solid #7B5EA722' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#7B5EA7', marginBottom: 8 }}>
+              Vì sao là khuyến nghị ngắn hạn (3–5 phiên)?
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+              Tín hiệu được tính toán dựa trên Mô hình phân cấp (Cascade Model):
+            </div>
+            <ul style={{ margin: '6px 0 8px', paddingLeft: 18, fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.8 }}>
+              <li>Mạng học sâu (GRU) quét chuỗi thời gian trượt 20 phiên gần nhất để định hình bối cảnh và tối ưu độ chính xác trong khung 3–5 ngày tới.</li>
+              <li>Thuật toán K-Means số hóa các vùng hỗ trợ/kháng cự động trong 3 tháng.</li>
+              <li>Mô hình XGBoost tổng hợp 42 tính năng kỹ thuật và vĩ mô (VN-Index) để đưa ra quyết định tối ưu nhất tại thời điểm tra cứu.</li>
+            </ul>
+            <div style={{ fontSize: 12, color: '#7B5EA7', fontWeight: 600, lineHeight: 1.6 }}>
+              ➔ Trì hoãn đặt lệnh sẽ làm mất lợi thế vị thế và giá mục tiêu của hệ thống.
+            </div>
+          </div>
+
+          {/* Hourly update */}
+          <div style={{ padding: '10px 14px', background: '#E8F0FB', borderRadius: 10, border: '1px solid #5B7FA622', fontSize: 12, color: '#5B7FA6', fontWeight: 600 }}>
+            Mô hình được cập nhật tự động theo đơn vị giờ (Hourly Update). Vui lòng tuân thủ khung giờ dưới đây để tối ưu lợi thế DA 63.64%*.
+          </div>
+
+          {/* SELL */}
+          <div style={{ padding: 14, background: '#FFEBEE', borderRadius: 12, border: '1px solid #C6282822' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#C62828', marginBottom: 8 }}>
+              🟥 Tín hiệu BÁN (SELL)
+            </div>
+            <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.8 }}>
+              <li><strong>Thời điểm:</strong> Ngay trong phiên T0, tối ưu từ 13:15–14:15 (khung giờ T+ về tài khoản, áp lực dòng tiền lộ rõ xu hướng nhất).</li>
+              <li><strong>Cách đặt lệnh:</strong> Sử dụng lệnh MP hoặc LO kê thấp 1–2 bước giá để đảm bảo khớp ngay, tránh rủi ro sụt giảm lũy kế sang các phiên sau.</li>
+            </ul>
+          </div>
+
+          {/* BUY */}
+          <div style={{ padding: 14, background: '#E8F5E9', borderRadius: 12, border: '1px solid #4A7C5F22' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#2E7D32', marginBottom: 8 }}>
+              🟩 Tín hiệu MUA (BUY)
+            </div>
+            <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.8 }}>
+              <li><strong>Thời điểm:</strong> Giải ngân ngay trong phiên T0, tuyệt đối không đợi sang T+1 (dễ bị mua đuổi giá cao).</li>
+              <li><strong>Đi vốn:</strong> Chia 2 đợt — Sáng 10:30 gom 50% nếu Volume tăng mạnh; Chiều sau 14:00 gom nốt 50% nếu giá giữ vững trên vùng hỗ trợ cứng.</li>
+              <li><strong>Quản trị:</strong> Đặt Stop-loss tự động từ 3%–5% dưới vùng hỗ trợ cản động.</li>
+            </ul>
+          </div>
+
+          {/* HOLD */}
+          <div style={{ padding: 14, background: '#FFF8E1', borderRadius: 12, border: '1px solid #9E7E4522' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#9E7E45', marginBottom: 8 }}>
+              🟨 Tín hiệu GIỮ (HOLD)
+            </div>
+            <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.8 }}>
+              <li><strong>Hành động:</strong> Không đặt lệnh.</li>
+              <li>Độ tự tin của mô hình nằm dưới ngưỡng kỷ luật 55% — thị trường đi ngang hoặc nhiễu loạn thông tin.</li>
+            </ul>
+          </div>
+
+          {/* Footnote */}
+          <div style={{ padding: '10px 14px', background: '#F9F6F1', borderRadius: 10, border: '1px solid #EDE5D8', fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            * <strong>Active DA (Độ chính xác định hướng chủ động):</strong> Hệ thống chỉ tính điểm khi phát lệnh rõ ràng. Cứ 100 lệnh MUA/BÁN phát ra, có gần 2/3 số lệnh đi đúng hướng kỳ vọng trong 3–5 phiên kế tiếp.
+          </div>
+
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Model Explanation Modal ───────────────────────────────────
 
 function ModelExplainModal({ onClose }) {
@@ -584,6 +694,7 @@ export default function PredictPrice() {
   const [signal,       setSignal]       = useState(null)
   const [error,        setError]        = useState(null)
   const [showModal,    setShowModal]    = useState(false)
+  const [showExecModal, setShowExecModal] = useState(false)
 
   async function handlePredict() {
     const t = ticker.trim().toUpperCase()
@@ -618,7 +729,8 @@ export default function PredictPrice() {
 
   return (
     <>
-      {showModal && <ModelExplainModal onClose={() => setShowModal(false)} />}
+      {showModal     && <ModelExplainModal    onClose={() => setShowModal(false)} />}
+      {showExecModal && <ExecutionGuideModal onClose={() => setShowExecModal(false)} />}
 
       <div className="predict-layout">
         {/* Left: config */}
@@ -720,9 +832,18 @@ export default function PredictPrice() {
                         {sigStyle.label}
                       </span>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 11, color: sigStyle.color, fontWeight: 600 }}>
-                          Tín hiệu XGBoost
-                        </div>
+                        <button
+                          onClick={() => setShowExecModal(true)}
+                          style={{
+                            padding: '3px 8px', borderRadius: 6, cursor: 'pointer',
+                            border: `1px solid ${sigStyle.color}55`,
+                            background: 'rgba(255,255,255,0.6)',
+                            color: sigStyle.color, fontSize: 11, fontWeight: 700,
+                            marginBottom: 4, display: 'inline-block',
+                          }}
+                        >
+                          Cách thực thi
+                        </button>
                         <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                           Độ tự tin: {(signal.conviction * 100).toFixed(1)}%
                         </div>
