@@ -618,7 +618,7 @@ export default function Portfolio() {
                           <div className="asset-name">{TICKER_NAMES[s.ticker] || s.sector}</div>
                         </div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6, flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                           <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Tỷ trọng</span>
                           <input
