@@ -465,47 +465,14 @@ export default function Portfolio() {
       {/* ── KPI cards ── */}
       <KpiGrid cards={kpiCards} />
 
-      {/* ── Backtest environment card (dark terminal) ── */}
-      <div style={{
-        background: '#1C1A14', borderRadius: 12, padding: '16px 20px', marginBottom: 16,
-        fontFamily: 'monospace', fontSize: 12, color: '#D4C090',
-      }}>
-        <div style={{ color: '#8A7E60', fontSize: 11, marginBottom: 10, letterSpacing: 1 }}>
-          THIET LAP MOI TRUONG KIEM THU DINH LUONG
-        </div>
-
-        {/* Row 1: two columns */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 8, marginBottom: 10 }}>
-          <div>
-            <div style={{ color: '#C4A265', fontWeight: 700, marginBottom: 2 }}>Giai doan kiem dinh (Test Set)</div>
-            <div>24/01/2025 → 20/04/2026</div>
-          </div>
-          <div style={{ color: '#3E3828', alignSelf: 'center' }}>|</div>
-          <div>
-            <div style={{ color: '#C4A265', fontWeight: 700, marginBottom: 2 }}>Phan tach du lieu (Data Split)</div>
-            <div>Huan luyen (Offline): Lich su 2020 – 2024</div>
-          </div>
-        </div>
-
-        {/* Row 2: constraints */}
-        <div style={{ borderTop: '1px solid #2E2A1E', paddingTop: 10, marginBottom: 10 }}>
-          <div style={{ color: '#C4A265', fontWeight: 700, marginBottom: 4 }}>Bo quy tac nghiem ngat (Constraints)</div>
-          <div style={{ color: '#7EC8A0', marginBottom: 2 }}>[Look-ahead bias = 0]  Khong ro ri hoac su dung du lieu tuong lai</div>
-          <div style={{ color: '#7EC8A0' }}>[Cua so truot = 20 phien]  Do dai chuoi du lieu nap vao GRU Encoder</div>
-        </div>
-
-        {/* Row 3: execution triggers */}
-        <div style={{ borderTop: '1px solid #2E2A1E', paddingTop: 10 }}>
-          <div style={{ color: '#C4A265', fontWeight: 700, marginBottom: 4 }}>Dong co kich hoat tin hieu (Execution Triggers)</div>
-          <div style={{ color: '#9E9070', marginBottom: 2 }}>• Dau vao thuat toan : 25 chi so dong luong cau truc (OHLCV + Boi canh VN-Index)</div>
-          <div style={{ color: '#9E9070' }}>• Nguong tu tin (Conviction) : &gt;= 55.0%  (Ep mo hinh dut khoat ra lenh MUA/BAN)</div>
-        </div>
-      </div>
-
       {/* ── Backtest leaderboard ── */}
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-title">Kết quả Kiểm Thử Thực Nghiệm — Walk-Forward Backtest</div>
-        <div className="card-sub" style={{ marginBottom: 12 }}>Nhấn vào từng chỉ số để xem giải thích</div>
+        <div className="card-sub" style={{ marginBottom: 4 }}>
+          Huấn luyện trên dữ liệu lịch sử <strong>2020–2024</strong> · Kiểm thử trên dữ liệu ngoài mẫu <strong>24/01/2025 – 20/04/2026</strong>.
+          Quy tắc: không nhìn trước tương lai (look-ahead bias = 0), cửa sổ trượt 20 phiên, ngưỡng tin cậy ≥ 55%.
+          Nhấn vào từng chỉ số để xem giải thích.
+        </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
