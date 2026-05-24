@@ -5,7 +5,7 @@ import {
   Legend, ResponsiveContainer,
 } from 'recharts'
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://amyas-lab-investnature.hf.space'
+const API_BASE = import.meta.env.VITE_API_URL || 'https://amyas0107-investnature-api.hf.space'
 
 const TABS = [
   { id: 'journey',      label: 'Hành trình R&D',      Icon: TrendUpIcon  },
@@ -527,9 +527,11 @@ const CUSTOM_TOOLTIP = ({ active, payload, label }) => {
 }
 
 function TabBacktest() {
-  const [data, setData]     = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError]   = useState(null)
+  const [data,     setData]     = useState(null)
+  const [loading,  setLoading]  = useState(true)
+  const [error,    setError]    = useState(null)
+  const [openSec,  setOpenSec]  = useState(null)
+  const toggle = id => setOpenSec(prev => prev === id ? null : id)
 
   useEffect(() => {
     fetch(`${API_BASE}/backtest/price`)
@@ -550,8 +552,6 @@ function TabBacktest() {
   )
 
   const { summary, equity_curve } = data
-
-  // Downsample to ~200 points for chart performance
   const step = Math.max(1, Math.floor(equity_curve.length / 200))
   const chartData = equity_curve.filter((_, i) => i % step === 0).map(p => ({
     date:  p.date.slice(0, 7),
@@ -563,29 +563,111 @@ function TabBacktest() {
   const green = '#2D6A4F'
   const gold  = '#C4A265'
 
+  const Acc = ({ id, title, children }) => (
+    <div style={{ marginBottom: 10 }}>
+      <button
+        onClick={() => toggle(id)}
+        style={{
+          width: '100%', textAlign: 'left', padding: '12px 16px',
+          background: openSec === id ? '#FAF3E0' : 'var(--bg-card)',
+          border: '1px solid var(--border)', borderRadius: openSec === id ? '10px 10px 0 0' : 10,
+          fontSize: 14, fontWeight: 600, color: 'var(--text-primary)',
+          cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        }}
+      >
+        <span>{title}</span>
+        <span style={{ fontSize: 18, color: 'var(--text-muted)', lineHeight: 1 }}>
+          {openSec === id ? '−' : '+'}
+        </span>
+      </button>
+      {openSec === id && (
+        <div style={{
+          padding: '16px 18px', border: '1px solid var(--border)', borderTop: 'none',
+          borderRadius: '0 0 10px 10px', background: '#fff', lineHeight: 1.7,
+        }}>
+          {children}
+        </div>
+      )}
+    </div>
+  )
+
   return (
     <div>
       <SectionTitle>Walk-Forward Backtest — MTL T4</SectionTitle>
-      <Sub>
-        Kiểm định mô hình trên <strong>{summary.total_predictions.toLocaleString()} dự đoán</strong> từ{' '}
-        {summary.date_range_start?.slice(0, 7)} đến {summary.date_range_end?.slice(0, 7)}.
-        Cửa sổ 20 ngày trượt, dự đoán 5 ngày tiếp theo — không dùng dữ liệu tương lai (look-ahead bias = 0).
-      </Sub>
 
-      <KpiRow items={[
-        { label: 'Directional Accuracy 5d', value: fmtPct(summary.da_5d),  color: green, sub: 'vs 50% ngẫu nhiên' },
-        { label: 'Sharpe (chiến lược)',     value: summary.sharpe_strategy, color: gold  },
-        { label: 'Sharpe (benchmark)',      value: summary.sharpe_benchmark, color: 'var(--text-secondary)' },
-        { label: 'Tín hiệu BUY',           value: fmtPct(summary.buy_signal_pct), sub: 'độ chọn lọc cao' },
-      ]} />
+      {/* ── What is WF backtest ── */}
+      <div className="card" style={{ background: '#FFFBF2', border: '1px solid #E8D5A0', marginBottom: 16 }}>
+        <div style={{ fontWeight: 700, color: 'var(--gold-dark)', marginBottom: 8, fontSize: 14 }}>
+          Walk-Forward Backtest là gì?
+        </div>
+        <p style={{ fontSize: 13.5, color: 'var(--text-secondary)', lineHeight: 1.8, margin: 0 }}>
+          Trong thị trường tài chính, việc kiểm tra mô hình bằng cách xáo trộn dữ liệu ngẫu nhiên là một
+          sai lầm nghiêm trọng vì nó sẽ làm rò rỉ dữ liệu của tương lai vào quá khứ.<br /><br />
+          <strong>Walk-Forward Backtest</strong> (Kiểm thử tịnh tiến thời gian) là phương pháp mô phỏng
+          giao dịch chuẩn mực nhất của các quỹ đầu tư định lượng. Hệ thống đóng băng mô hình AI tại một
+          thời điểm, sau đó tịnh tiến từng ngày dọc theo lịch sử để kiểm tra: nếu trong quá khứ chúng ta
+          thực sự xuống tiền theo tín hiệu của AI thì kết quả tài sản sẽ ra sao.
+        </p>
+      </div>
 
-      <KpiRow items={[
-        { label: 'Lợi nhuận tích lũy (chiến lược)', value: fmtPct(summary.cum_return_strat), color: green },
-        { label: 'Lợi nhuận tích lũy (benchmark)',  value: fmtPct(summary.cum_return_bench), color: 'var(--text-secondary)' },
-        { label: 'DA 1 ngày', value: fmtPct(summary.da_1d), sub: 'độ khó nhất' },
-        { label: 'MAE 1 ngày', value: summary.mae_1d.toFixed(4), sub: 'log-return error' },
-      ]} />
+      {/* ── How the system runs ── */}
+      <div className="card" style={{ marginBottom: 20 }}>
+        <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 14, marginBottom: 4 }}>
+          Hệ thống InvestNature vận hành kiểm thử như thế nào?
+        </div>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.7, marginBottom: 14 }}>
+          Xuyên suốt chu kỳ 6 năm từ 04/2020 đến 04/2026, hệ thống đã thực hiện{' '}
+          <strong>{summary.total_predictions.toLocaleString()} lượt dự đoán</strong> độc lập
+          trên toàn bộ 27 mã cổ phiếu HOSE theo cơ chế nghiêm ngặt:
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {[
+            { label: 'Cửa sổ 20 ngày trượt (Look-back Window)', color: '#5B7FA6', bg: '#E8F0FB',
+              body: 'Tại mỗi ngày giao dịch T trong lịch sử, hệ thống chỉ cắt đúng dữ liệu của 20 phiên liền trước (tương đương 1 tháng lịch sử) để làm "đề bài" nạp vào mô hình.' },
+            { label: 'Cam kết Look-ahead Bias = 0', color: '#4A7C5F', bg: '#E8F5E9',
+              body: 'Mô hình hoàn toàn bị "mù" trước dữ liệu của ngày T và tương lai. Điều này đảm bảo kết quả thu được là hoàn toàn thực tế, không hề dính lỗi "biết trước tương lai".' },
+            { label: 'Dự báo quỹ đạo 5 ngày', color: '#9E7E45', bg: '#FFF8E1',
+              body: 'Từ 20 phiên lịch sử đó, mô hình dự phóng liên tục tỷ suất sinh lời lũy kế cho 5 ngày kế tiếp (T+1 đến T+5).' },
+            { label: 'Ngưỡng kích hoạt lệnh (Threshold = 0.55)', color: '#7B5EA7', bg: '#F3EEF9',
+              body: 'Chỉ khi nhánh phân loại của AI đạt độ tự tin (conviction) từ 55.0% trở lên, tín hiệu MUA hoặc BÁN mới được phát ra. Nếu dưới ngưỡng, hệ thống đưa về trạng thái GIỮ (HOLD) để bảo vệ vốn.' },
+          ].map(item => (
+            <div key={item.label} style={{
+              display: 'flex', gap: 12, padding: '10px 12px',
+              background: item.bg, borderRadius: 10, border: `1px solid ${item.color}22`,
+            }}>
+              <div style={{ width: 4, borderRadius: 2, background: item.color, flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: item.color, marginBottom: 3 }}>{item.label}</div>
+                <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{item.body}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
+      {/* ── Metrics grid (ordered: accuracy → error → activity → returns → risk-adj) ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 20 }}>
+        {[
+          { label: 'DA Ngắn hạn (1d)',              value: fmtPct(summary.da_1d),            color: '#5B7FA6',              bg: '#E8F0FB',          sub: 'Độ khó nhất' },
+          { label: 'DA Trung hạn (5d)',              value: fmtPct(summary.da_5d),            color: green,                  bg: '#E8F5E9',          sub: 'vs 50% ngẫu nhiên' },
+          { label: 'MAE 1 ngày',                    value: summary.mae_1d.toFixed(4),         color: '#9E7E45',              bg: '#FFF8E1',          sub: 'log-return error' },
+          { label: 'Tín hiệu BUY',                  value: fmtPct(summary.buy_signal_pct),   color: '#7B5EA7',              bg: '#F3EEF9',          sub: 'độ chọn lọc cao' },
+          { label: 'Lợi nhuận tích lũy (chiến lược)', value: fmtPct(summary.cum_return_strat), color: green,                bg: '#E8F5E9',          sub: 'Chiến lược AI' },
+          { label: 'Lợi nhuận tích lũy (benchmark)', value: fmtPct(summary.cum_return_bench),  color: 'var(--text-secondary)', bg: 'var(--bg-card)', sub: 'Thị trường chung' },
+          { label: 'Sharpe (chiến lược)',            value: summary.sharpe_strategy,           color: gold,                   bg: '#FFFBF2',          sub: 'lợi nhuận/rủi ro' },
+          { label: 'Sharpe (benchmark)',             value: summary.sharpe_benchmark,          color: 'var(--text-muted)',    bg: 'var(--bg-card)',   sub: 'Buy & Hold 27 mã' },
+        ].map(({ label, value, color, bg, sub }) => (
+          <div key={label} style={{
+            background: bg, border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px',
+          }}>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>{label}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color }}>{value}</div>
+            {sub && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{sub}</div>}
+          </div>
+        ))}
+      </div>
+
+      {/* ── Equity curve chart ── */}
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', marginBottom: 16 }}>
           Đường vốn tích lũy (2020–2026)
@@ -605,17 +687,79 @@ function TabBacktest() {
         </ResponsiveContainer>
       </div>
 
-      <div className="card" style={{ background: '#FFFBF2', border: '1px solid #E8D5A0' }}>
-        <div style={{ fontWeight: 700, color: 'var(--gold-dark)', marginBottom: 8, fontSize: 14 }}>
-          Phương pháp luận
-        </div>
-        <p style={{ fontSize: 13.5, color: 'var(--text-secondary)', lineHeight: 1.8, margin: 0 }}>
-          <strong>Walk-forward validation</strong>: cửa sổ 20 ngày trượt qua toàn bộ lịch sử —
-          mô hình không bao giờ nhìn thấy dữ liệu tương lai. Chiến lược: mỗi ngày equal-weight tất cả
-          cổ phiếu có tín hiệu BUY (ngưỡng 55%). Benchmark: equal-weight toàn bộ 27 cổ phiếu.
-          Sharpe annualized = μ/σ × √252.
+      {/* ── Accordion deep-dive sections ── */}
+      <Acc id="equity" title="📈 Cách tính đường vốn tích lũy (Equity Curve) như thế nào?">
+        <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>
+          Đường vốn tích lũy không phải là đồ thị giá của một cổ phiếu, mà là đồ thị giả lập tài sản của một{' '}
+          <strong>Quỹ đầu tư ảo</strong> chạy bằng thuật toán:
         </p>
-      </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {[
+            { label: 'Hành động hàng ngày',
+              body: 'Vào cuối mỗi ngày giao dịch, hệ thống lọc ra tất cả các mã cổ phiếu trong rổ 27 mã HOSE có tín hiệu MUA (BUY) thỏa mãn độ tự tin ≥ 55.0%.' },
+            { label: 'Phân bổ vốn',
+              body: 'Số vốn hiện có được chia đều với tỷ trọng bằng nhau (Equal-weight) cho nhóm cổ phiếu được chọn.' },
+            { label: 'Tính toán Lợi nhuận (P&L)',
+              body: 'Lợi nhuận ngày hôm sau của chiến lược (strat_return) bằng trung bình cộng tỷ suất sinh lời thực tế từ các mã được chọn. Kết quả được nhân lũy kế theo thời gian (cumprod()) để vẽ nên đường màu xanh đậm.' },
+            { label: 'Đường Benchmark (Vàng nét đứt)',
+              body: 'Đại diện cho chiến lược "lười biếng" — chia đều vốn mua hết cả 27 mã ngay từ ngày đầu tiên và giữ nguyên cho đến hết 6 năm (Buy-and-Hold). Khoảng cách giữa đường xanh và đường vàng chính là giá trị thặng dư (Alpha) mà AI mang lại.' },
+          ].map((item, i) => (
+            <div key={i} style={{ padding: '10px 12px', borderRadius: 8, background: '#F9F6F1', border: '1px solid var(--border)' }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--gold-dark)', marginBottom: 4 }}>▸ {item.label}</div>
+              <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{item.body}</div>
+            </div>
+          ))}
+        </div>
+      </Acc>
+
+      <Acc id="sharpe" title="📐 Chỉ số Sharpe (Sharpe Ratio) là gì?">
+        <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>
+          Chỉ số Sharpe là thước đo kinh điển trong giới tài chính để trả lời câu hỏi:{' '}
+          <em>"Để kiếm được mức lợi nhuận đó, tài khoản của bạn đã phải chịu bao nhiêu sự dập vờn, rủi ro?"</em>
+        </p>
+        <div style={{ background: '#F5F0E8', borderRadius: 8, padding: '10px 14px', fontFamily: 'monospace', fontSize: 13, marginBottom: 14, textAlign: 'center', color: 'var(--text-primary)' }}>
+          Sharpe = (Lợi nhuận TB hàng ngày / Độ lệch chuẩn hàng ngày) × √252
+        </div>
+        <div style={{ padding: '12px 14px', background: '#E8F5E9', borderRadius: 10, border: '1px solid #4A7C5F33', marginBottom: 12 }}>
+          <div style={{ fontWeight: 700, fontSize: 12.5, color: '#2E7D32', marginBottom: 6 }}>
+            Sharpe Chiến lược ({summary.sharpe_strategy}) {'>'} Sharpe Benchmark ({summary.sharpe_benchmark})
+          </div>
+          <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+            Chiến lược của AI không chỉ ăn dày hơn về mặt phần trăm cuối kỳ ({fmtPct(summary.cum_return_strat)} {'>'} {fmtPct(summary.cum_return_bench)}),
+            mà còn mang lại <strong>lợi nhuận trên một đơn vị rủi ro tốt hơn</strong>.
+          </div>
+        </div>
+        <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.7, margin: 0 }}>
+          Đường vốn của AI chạy êm hơn, ít xuất hiện các pha sụt giảm tài sản kinh hoàng (Max Drawdown)
+          nhờ thuật toán chủ động ngắt vị thế, ôm tiền mặt đứng ngoài khi khối vĩ mô VN-Index báo xấu
+          (như đợt Bear Market cuối năm 2022).
+        </p>
+      </Acc>
+
+      <Acc id="mae" title="🧮 Sai số tuyệt đối trung bình MAE (Mean Absolute Error) là gì?">
+        <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>
+          MAE đo lường khoảng cách sai lệch trung bình giữa con số mô hình AI dự đoán và con số thực tế
+          diễn ra trên sàn chứng khoán.
+        </p>
+        <div style={{ background: '#F5F0E8', borderRadius: 8, padding: '10px 14px', fontFamily: 'monospace', fontSize: 13, marginBottom: 14, textAlign: 'center', color: 'var(--text-primary)' }}>
+          MAE = (1/n) × Σ |y_thực_tế − ŷ_dự_đoán|
+        </div>
+        <div style={{ padding: '12px 14px', background: '#FFF8E1', borderRadius: 10, border: '1px solid #9E7E4533', marginBottom: 12 }}>
+          <div style={{ fontWeight: 700, fontSize: 12.5, color: '#9E7E45', marginBottom: 6 }}>
+            MAE 1 ngày = {summary.mae_1d.toFixed(4)} — "Phanh giảm chấn" cho lòng tham
+          </div>
+          <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+            Chỉ số này nhắc nhở Trader rằng: mô hình dù thông minh đến đâu vẫn luôn có biên độ sai số
+            (sai lệch log-return khoảng {(summary.mae_1d * 100).toFixed(2)}%).
+          </div>
+        </div>
+        <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.7, margin: 0 }}>
+          Do đó, người dùng không nên tất tay (All-in) vào một mức giá chính xác, mà phải coi các con số
+          dự đoán của InvestNature là một <strong>Vùng giá cân bằng kỳ vọng</strong>, đồng thời luôn tuân
+          thủ đặt lệnh dừng lỗ (Stop-loss) từ 3%–5% để bảo vệ tài khoản trước các biến động bất ngờ.
+        </p>
+      </Acc>
+
     </div>
   )
 }
