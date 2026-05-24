@@ -39,7 +39,7 @@ FEATURE_COLS = [
 ]
 
 _FETCH_EXTRA_DAYS     = 110
-_XGB_SIGNAL_EXTRA     = 155   # extra days: 63 SR lookback + 50 EMA warmup + buffer
+_XGB_SIGNAL_EXTRA     = 230   # SR lookback (63) + EMA-50 warmup (49) + VNI join loss + buffer
 
 # ── XGBoost T4 feature column names ──────────────────────────
 SR_FEATURE_COLS = [
@@ -431,11 +431,13 @@ def build_xgb_signal_features(
     vni_feats   = _compute_indicators(df_vni, prefix="vni_")
     combined    = stock_feats.join(vni_feats, how="inner").dropna()
 
-    min_rows = _SR_LOOKBACK + n_days + 2   # SR window + sequence + prev-day for crossover
+    # MTL sequence (n_days) is a subset of the SR window (last 63 rows) — they overlap.
+    # Actual minimum: 63 for SR window + current row + previous row for MA crossover.
+    min_rows = _SR_LOOKBACK + 2
     if len(combined) < min_rows:
         raise ValueError(
             f"Only {len(combined)} valid rows for '{ticker}' "
-            f"(need {min_rows} for XGBoost T4 pipeline)."
+            f"(need {min_rows} after indicator warmup for XGBoost T4 pipeline)."
         )
 
     # ── 25 tech features (scaled) ────────────────────────────
