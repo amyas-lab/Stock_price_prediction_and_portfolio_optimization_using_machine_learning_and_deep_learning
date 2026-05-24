@@ -684,17 +684,381 @@ function ModelExplainModal({ onClose }) {
   )
 }
 
+// ── Price Prediction Model Explanation Modal ──────────────────
+
+function PricePredictionModal({ onClose }) {
+  const [openSection, setOpenSection] = useState(null)
+  const toggle = (id) => setOpenSection(prev => prev === id ? null : id)
+
+  const Section = ({ id, title, children }) => (
+    <div style={{ marginBottom: 12 }}>
+      <button
+        onClick={() => toggle(id)}
+        style={{
+          width: '100%', textAlign: 'left', padding: '12px 16px',
+          background: openSection === id ? '#FAF3E0' : '#F9F6F1',
+          border: '1px solid #EDE5D8', borderRadius: 10,
+          fontSize: 14, fontWeight: 600, color: 'var(--text-primary)',
+          cursor: 'pointer', display: 'flex', justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
+        <span>{title}</span>
+        <span style={{ fontSize: 18, color: 'var(--text-muted)', lineHeight: 1 }}>
+          {openSection === id ? '−' : '+'}
+        </span>
+      </button>
+      {openSection === id && (
+        <div style={{
+          padding: '16px', border: '1px solid #EDE5D8',
+          borderTop: 'none', borderRadius: '0 0 10px 10px',
+          background: '#fff', lineHeight: 1.7,
+        }}>
+          {children}
+        </div>
+      )}
+    </div>
+  )
+
+  const P = ({ children, style }) => (
+    <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 10, ...style }}>{children}</p>
+  )
+
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
+        zIndex: 1002, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '16px',
+      }}
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <div style={{
+        background: '#FAF7F2', borderRadius: 16, width: '100%', maxWidth: 760,
+        maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+      }}>
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          padding: '20px 24px 16px', borderBottom: '1px solid #EDE5D8',
+          position: 'sticky', top: 0, background: '#FAF7F2', zIndex: 1,
+        }}>
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>
+              Kiến trúc Mô hình Dự đoán Giá
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+              MTL T4: GRU(64) → Multi-Head Attention → Regression & Classification
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none', border: '1px solid #EDE5D8',
+              borderRadius: 8, width: 32, height: 32, cursor: 'pointer',
+              fontSize: 16, color: 'var(--text-muted)', display: 'flex',
+              alignItems: 'center', justifyContent: 'center',
+            }}
+          >×</button>
+        </div>
+
+        <div style={{ padding: '20px 24px' }}>
+
+          {/* Pipeline Flow Diagram */}
+          <div style={{
+            background: 'linear-gradient(135deg, #E8F0FB 0%, #F3EEF9 50%, #E8F5E9 100%)',
+            borderRadius: 12, padding: '18px', marginBottom: 20,
+            border: '1px solid #DDE8D8',
+          }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Luồng dữ liệu: Offline Training → Online Inference
+            </div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>OFFLINE (đã frozen)</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+              {[
+                { label: 'OHLCV\n2020–2026', color: '#5B7FA6', bg: '#E8F0FB' },
+                { label: '→', color: '#999', bg: 'transparent', noBorder: true },
+                { label: 'Feature Eng.\n25 features', color: '#9E7E45', bg: '#FFF8E1' },
+                { label: '→', color: '#999', bg: 'transparent', noBorder: true },
+                { label: 'Train MTL T4\nGRU+Attention', color: '#4A7C5F', bg: '#E8F5E9' },
+                { label: '→', color: '#999', bg: 'transparent', noBorder: true },
+                { label: 'Frozen\nWeights', color: '#7B5EA7', bg: '#F3EEF9' },
+              ].map((node, i) => (
+                <div key={i} style={{
+                  padding: node.noBorder ? '4px 2px' : '6px 10px',
+                  borderRadius: 8, fontWeight: 600,
+                  color: node.color, background: node.bg,
+                  border: node.noBorder ? 'none' : `1px solid ${node.color}33`,
+                  whiteSpace: 'pre', textAlign: 'center', lineHeight: 1.4,
+                  fontSize: node.noBorder ? 14 : 11,
+                }}>
+                  {node.label}
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>ONLINE (mỗi lần tra cứu)</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              {[
+                { label: 'Fetch live\n130 ngày', color: '#5B7FA6', bg: '#E8F0FB' },
+                { label: '→', color: '#999', bg: 'transparent', noBorder: true },
+                { label: 'Tính 25\nfeatures', color: '#9E7E45', bg: '#FFF8E1' },
+                { label: '→', color: '#999', bg: 'transparent', noBorder: true },
+                { label: 'Window\n20 phiên\n+ Scaler', color: '#4A7C5F', bg: '#E8F5E9' },
+                { label: '→', color: '#999', bg: 'transparent', noBorder: true },
+                { label: 'GRU\nInference', color: '#7B5EA7', bg: '#F3EEF9' },
+                { label: '→', color: '#999', bg: 'transparent', noBorder: true },
+                { label: 'Giá dự báo\n5 ngày', color: '#C62828', bg: '#FFEBEE' },
+              ].map((node, i) => (
+                <div key={i} style={{
+                  padding: node.noBorder ? '4px 2px' : '6px 10px',
+                  borderRadius: 8, fontWeight: 600,
+                  color: node.color, background: node.bg,
+                  border: node.noBorder ? 'none' : `1px solid ${node.color}33`,
+                  whiteSpace: 'pre', textAlign: 'center', lineHeight: 1.4,
+                  fontSize: node.noBorder ? 14 : 11,
+                }}>
+                  {node.label}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Section 1 ── */}
+          <Section id="pipeline" title="1. Pipeline dữ liệu: Offline Training và Online Inference">
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+              <P>
+                Hệ thống dự đoán giá tách biệt hoàn toàn hai pha: <strong>Offline Training</strong> (huấn luyện một lần, trọng số đóng băng) và <strong>Online Inference</strong> (tính toán thời gian thực khi có yêu cầu).
+              </P>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+                <div style={{ padding: 14, borderRadius: 10, background: '#E8F5E9', border: '1px solid #4A7C5F33' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#4A7C5F', marginBottom: 8 }}>Offline Training (đã hoàn thành)</div>
+                  <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, lineHeight: 2 }}>
+                    <li><strong>Train:</strong> 2020-03-19 → 2024-06-21</li>
+                    <li><strong>Val:</strong> 2024-06-24 → 2025-01-24</li>
+                    <li><strong>Test:</strong> 2025-02-03 → 2026-04-20</li>
+                    <li>Trọng số GRU + Attention đóng băng sau training</li>
+                  </ul>
+                </div>
+                <div style={{ padding: 14, borderRadius: 10, background: '#E8F0FB', border: '1px solid #5B7FA633' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#5B7FA6', marginBottom: 8 }}>Online Inference (mỗi lần tra cứu)</div>
+                  <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, lineHeight: 2 }}>
+                    <li>Fetch dữ liệu live từ VNSTOCK / TCBS</li>
+                    <li>Tính 25 features trên buffer 130 ngày</li>
+                    <li>Trích sliding window 20 phiên cuối</li>
+                    <li>Áp MinMaxScaler (fit trên train set)</li>
+                  </ul>
+                </div>
+              </div>
+              <P>
+                Vì trọng số mô hình không thay đổi sau khi deploy, mỗi yêu cầu chỉ cần <strong>forward pass ~0.3ms</strong>. Chi phí thực sự nằm ở việc fetch và xử lý dữ liệu live (trung bình 4–8 giây, cache theo giờ để giảm xuống ~50ms).
+              </P>
+            </div>
+          </Section>
+
+          {/* ── Section 2 ── */}
+          <Section id="preprocessing" title="2. Tiền xử lý Online Inference: 3 bước xử lý dữ liệu live">
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+              {[
+                {
+                  step: 'Bước 1: Buffer 130 ngày',
+                  body: 'Hệ thống tải thêm 130 ngày dữ liệu lịch sử (nhiều hơn 20 phiên cần thiết). Lý do: các chỉ báo cần lookback dài như EMA-50 (50 ngày), Bollinger Bands (20 ngày + 2σ), ATR-14 (14 ngày) cần đủ dữ liệu để tính chính xác từ phiên đầu tiên của sliding window. Không có buffer → các giá trị đầu cửa sổ bị NaN hoặc sai lệch.',
+                  color: '#5B7FA6', bg: '#E8F0FB',
+                },
+                {
+                  step: 'Bước 2: Đồng bộ VN-Index (VNI)',
+                  body: 'Cùng khoảng thời gian 130 ngày, hệ thống tải song song dữ liệu VN-Index để tính đầy đủ 12 VNI macro features (vni_log_return, vni_rsi, vni_macd, vni_signal, vni_hist, vni_ema_10, vni_bb_upper, vni_bb_lower, vni_atr,...). Hai chuỗi thời gian được align theo ngày giao dịch.',
+                  color: '#9E7E45', bg: '#FFF8E1',
+                },
+                {
+                  step: 'Bước 3: Sliding Window 20 phiên + MinMaxScaler',
+                  body: 'Sau khi tính đủ 25 features, hệ thống trích cửa sổ 20 phiên giao dịch cuối cùng (W=20) và áp dụng MinMaxScaler đã được fit trên tập train. Scaler đóng băng theo mô hình — không re-fit trên data mới — đảm bảo phân phối đầu vào khớp với phân phối lúc training. Kết quả: tensor shape [1, 20, 25] → feed vào GRU.',
+                  color: '#4A7C5F', bg: '#E8F5E9',
+                },
+              ].map((item, i) => (
+                <div key={i} style={{ padding: 14, borderRadius: 10, background: item.bg, border: `1px solid ${item.color}33`, marginBottom: 10 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: item.color, marginBottom: 6 }}>{item.step}</div>
+                  <div style={{ fontSize: 12, lineHeight: 1.7 }}>{item.body}</div>
+                </div>
+              ))}
+            </div>
+          </Section>
+
+          {/* ── Section 3 ── */}
+          <Section id="features25" title="3. Kỹ thuật đặc trưng: 25 Features đầu vào">
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+              <P>Mỗi phiên trong cửa sổ 20 ngày được biểu diễn bằng vectơ 25 features, chia thành 2 nhóm:</P>
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#5B7FA6', padding: '6px 10px', background: '#E8F0FB', borderRadius: 6, marginBottom: 8 }}>
+                  Nhóm 1: 13 Features cổ phiếu mục tiêu (Stock-specific)
+                </div>
+                {[
+                  { name: 'log_return', desc: 'Tỷ suất sinh lời log phiên: ln(Close_t / Close_{t-1})' },
+                  { name: 'close_normalized', desc: 'Giá đóng cửa đã chuẩn hóa MinMax theo toàn chuỗi train' },
+                  { name: 'rsi_14', desc: 'Relative Strength Index 14 phiên' },
+                  { name: 'macd', desc: 'MACD line: EMA(12) − EMA(26)' },
+                  { name: 'macd_signal', desc: 'Signal line: EMA(9) của MACD' },
+                  { name: 'macd_hist', desc: 'Histogram: MACD − MACD_signal' },
+                  { name: 'bb_upper', desc: 'Bollinger Band trên: SMA(20) + 2σ' },
+                  { name: 'bb_lower', desc: 'Bollinger Band dưới: SMA(20) − 2σ' },
+                  { name: 'atr_14', desc: 'Average True Range 14 phiên — độ biến động tuyệt đối' },
+                  { name: 'obv_norm', desc: 'On-Balance Volume chuẩn hóa — áp lực dòng tiền tích lũy' },
+                  { name: 'ema_10', desc: 'Exponential Moving Average 10 phiên' },
+                  { name: 'ema_20', desc: 'Exponential Moving Average 20 phiên' },
+                  { name: 'ema_50', desc: 'Exponential Moving Average 50 phiên' },
+                ].map(f => (
+                  <div key={f.name} style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: 10, padding: '6px 10px', borderBottom: '1px solid #F0EAE0', fontSize: 12 }}>
+                    <code style={{ fontFamily: 'monospace', fontSize: 11, color: '#5B7FA6', fontWeight: 600 }}>{f.name}</code>
+                    <span style={{ color: 'var(--text-secondary)', lineHeight: 1.5 }}>{f.desc}</span>
+                  </div>
+                ))}
+              </div>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#7B5EA7', padding: '6px 10px', background: '#F3EEF9', borderRadius: 6, marginBottom: 8 }}>
+                  Nhóm 2: 12 VNI Macro Features (VN-Index)
+                </div>
+                {[
+                  { name: 'vni_log_return', desc: 'Log-return của VN-Index — bối cảnh toàn thị trường' },
+                  { name: 'vni_rsi', desc: 'RSI của VN-Index' },
+                  { name: 'vni_macd', desc: 'MACD của VN-Index' },
+                  { name: 'vni_signal', desc: 'MACD Signal của VN-Index' },
+                  { name: 'vni_hist', desc: 'MACD Histogram của VN-Index' },
+                  { name: 'vni_ema_10', desc: 'EMA-10 của VN-Index' },
+                  { name: 'vni_bb_upper', desc: 'Bollinger Band trên của VN-Index' },
+                  { name: 'vni_bb_lower', desc: 'Bollinger Band dưới của VN-Index' },
+                  { name: 'vni_atr', desc: 'ATR của VN-Index — biến động hệ thống thị trường' },
+                  { name: 'vni_close_norm', desc: 'Giá VN-Index đã chuẩn hóa' },
+                  { name: 'vni_volume_norm', desc: 'Khối lượng VN-Index chuẩn hóa' },
+                  { name: 'vni_obv_norm', desc: 'OBV của VN-Index — dòng tiền toàn thị trường' },
+                ].map(f => (
+                  <div key={f.name} style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: 10, padding: '6px 10px', borderBottom: '1px solid #F0EAE0', fontSize: 12 }}>
+                    <code style={{ fontFamily: 'monospace', fontSize: 11, color: '#7B5EA7', fontWeight: 600 }}>{f.name}</code>
+                    <span style={{ color: 'var(--text-secondary)', lineHeight: 1.5 }}>{f.desc}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Section>
+
+          {/* ── Section 4 ── */}
+          <Section id="architecture" title="4. Kiến trúc MTL T4: GRU → Attention → Regression & Classification">
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+              <div style={{ background: '#1e1e1e', borderRadius: 8, padding: '14px 16px', fontFamily: 'monospace', fontSize: 11, color: '#d4d4d4', marginBottom: 16, overflowX: 'auto', lineHeight: 2 }}>
+                <span style={{ color: '#569cd6' }}>Input</span> [batch, 20, 25]<br/>
+                {'  ↓'}<br/>
+                <span style={{ color: '#4ec9b0' }}>GRU</span>(64 units, return_sequences=True) → [batch, 20, 64]<br/>
+                {'  ↓'}<br/>
+                <span style={{ color: '#4ec9b0' }}>Multi-Head Attention</span>(2 heads, Dropout 0.3) → [batch, 20, 64]<br/>
+                {'  ↓'}<br/>
+                <span style={{ color: '#4ec9b0' }}>GlobalAveragePooling</span> + <span style={{ color: '#4ec9b0' }}>LayerNorm</span> → [batch, 64]<br/>
+                {'  ↓ (split)'}<br/>
+                <span style={{ color: '#ce9178' }}>{'Regression Branch              Classification Branch'}</span><br/>
+                {'  RepeatVector(5)                Dense(32)'}<br/>
+                {'       ↓                              ↓'}<br/>
+                {'  Decoder GRU(64)             Dropout(0.3)'}<br/>
+                {'       ↓                              ↓'}<br/>
+                {'  TimeDistributed(Dense(1))   Dense(3) → Softmax'}<br/>
+                {'       ↓                              ↓'}<br/>
+                {'  [fr_1d..fr_5d]         [P_SELL, P_HOLD, P_BUY]'}
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+                <div style={{ padding: 14, background: '#E8F5E9', borderRadius: 10, border: '1px solid #4A7C5F33' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#4A7C5F', marginBottom: 8 }}>Regression Branch</div>
+                  <div style={{ fontSize: 12, lineHeight: 1.7 }}>
+                    Xuất chuỗi 5 log-return [fr_1d … fr_5d]. Giá tại ngày k được tính theo:<br/>
+                    <code style={{ background: '#E0F0E8', padding: '3px 8px', borderRadius: 4, display: 'block', marginTop: 8, fontSize: 12 }}>
+                      P(t+k) = P(t) × e^fr_k
+                    </code>
+                  </div>
+                </div>
+                <div style={{ padding: 14, background: '#F3EEF9', borderRadius: 10, border: '1px solid #7B5EA733' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#7B5EA7', marginBottom: 8 }}>Classification Branch</div>
+                  <div style={{ fontSize: 12, lineHeight: 1.7 }}>
+                    Phân loại xu hướng 5 ngày tới thành 3 lớp: P_SELL (giảm {'<'} −1.5%), P_HOLD (đi ngang), P_BUY (tăng ≥ +2%). Meta-features này dùng làm Prior Belief cho XGBoost.
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ padding: 12, background: '#FFF8E1', borderRadius: 8, border: '1px solid #E8D5A033' }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#9E7E45', marginBottom: 6 }}>Hàm tổn thất Multi-Task Learning</div>
+                <div style={{ fontFamily: 'monospace', fontSize: 12, background: '#F5F0D8', padding: '8px 12px', borderRadius: 6 }}>
+                  L_total = L_Huber(regression) + <strong>4.0</strong> × L_CrossEntropy(classification)
+                </div>
+                <div style={{ fontSize: 12, marginTop: 8, lineHeight: 1.6 }}>
+                  Hệ số λ_cls = 4.0 ép mạng phải ưu tiên phân loại đúng <em>hướng</em> giá hơn là khớp chính xác biên độ. Sử dụng <strong>Weighted Cross-Entropy</strong> để xử lý mất cân bằng nhãn HOLD trong dữ liệu thực tế.
+                </div>
+              </div>
+            </div>
+          </Section>
+
+          {/* ── Section 5 ── */}
+          <Section id="backtest" title="5. Kết quả Backtest trên tập kiểm định thực tế">
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+              <P>
+                Backtest được thực hiện trên <strong>tập Test (2025-02-03 → 2026-04-20)</strong> — dữ liệu hoàn toàn mới, mô hình chưa từng thấy trong quá trình huấn luyện.
+              </P>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 16 }}>
+                {[
+                  { label: 'DA Ngắn hạn (1d)', value: '51.03%', desc: 'Directional Accuracy', color: '#5B7FA6', bg: '#E8F0FB' },
+                  { label: 'DA Trung hạn (5d)', value: '56.79%', desc: 'Directional Accuracy', color: '#4A7C5F', bg: '#E8F5E9' },
+                  { label: 'Sharpe Ratio', value: '0.82', desc: 'vs. Buy & Hold', color: '#9E7E45', bg: '#FFF8E1' },
+                  { label: 'Lợi nhuận tích lũy', value: '156.98%', desc: 'Chiến lược theo tín hiệu', color: '#7B5EA7', bg: '#F3EEF9' },
+                ].map(m => (
+                  <div key={m.label} style={{ padding: 12, background: m.bg, borderRadius: 10, textAlign: 'center', border: `1px solid ${m.color}22` }}>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: m.color }}>{m.value}</div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: m.color, margin: '3px 0' }}>{m.label}</div>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{m.desc}</div>
+                  </div>
+                ))}
+              </div>
+
+              {[
+                {
+                  title: 'Directional Accuracy (DA)',
+                  body: 'DA-1d = 51.03% nghĩa là cứ 100 dự đoán chiều tăng/giảm ngay ngày hôm sau, có 51 dự đoán đúng hướng — tốt hơn tung đồng xu (50%) và ổn định trên dữ liệu ngoài mẫu. DA-5d = 56.79% cao hơn đáng kể, khẳng định mô hình nhạy cảm hơn với xu hướng 5 ngày so với 1 ngày.',
+                  color: '#5B7FA6', bg: '#E8F0FB',
+                },
+                {
+                  title: 'Sharpe Ratio: 0.82',
+                  body: 'Chiến lược theo tín hiệu MTL T4 đạt Sharpe Ratio = 0.82 so với Buy & Hold thụ động. Sharpe > 0.5 thường được coi là chấp nhận được; > 1.0 là xuất sắc. 0.82 cho thấy phần thưởng/rủi ro tốt hơn thị trường trong giai đoạn test.',
+                  color: '#9E7E45', bg: '#FFF8E1',
+                },
+                {
+                  title: 'Lợi nhuận tích lũy: 156.98%',
+                  body: 'Chiến lược theo tín hiệu mô hình trên tập test (hơn 1 năm) đạt mức tích lũy 156.98%. Lưu ý: backtest không tính phí giao dịch và trượt giá (slippage), trong thực tế lợi nhuận sẽ thấp hơn.',
+                  color: '#7B5EA7', bg: '#F3EEF9',
+                },
+              ].map(c => (
+                <div key={c.title} style={{ padding: 12, background: c.bg, borderRadius: 8, border: `1px solid ${c.color}33`, marginBottom: 8 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: c.color, marginBottom: 4 }}>{c.title}</div>
+                  <div style={{ fontSize: 12, lineHeight: 1.6 }}>{c.body}</div>
+                </div>
+              ))}
+
+              <div style={{ padding: 12, background: '#F9F6F1', borderRadius: 8, fontSize: 12, border: '1px solid #EDE5D8', lineHeight: 1.6, marginTop: 8 }}>
+                <strong>Tuyên bố miễn trừ:</strong> Kết quả backtest dựa trên dữ liệu quá khứ không đảm bảo hiệu suất tương lai. Đây là công cụ hỗ trợ nghiên cứu, không phải lời khuyên đầu tư tài chính.
+              </div>
+            </div>
+          </Section>
+
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main Component ────────────────────────────────────────────
 
 export default function PredictPrice() {
-  const [ticker,       setTicker]       = useState('')
-  const [forecastDays, setForecastDays] = useState(5)
-  const [loading,      setLoading]      = useState(false)
-  const [result,       setResult]       = useState(null)
-  const [signal,       setSignal]       = useState(null)
-  const [error,        setError]        = useState(null)
-  const [showModal,    setShowModal]    = useState(false)
+  const [ticker,        setTicker]        = useState('')
+  const [forecastDays,  setForecastDays]  = useState(5)
+  const [loading,       setLoading]       = useState(false)
+  const [result,        setResult]        = useState(null)
+  const [signal,        setSignal]        = useState(null)
+  const [error,         setError]         = useState(null)
+  const [showModal,     setShowModal]     = useState(false)
   const [showExecModal, setShowExecModal] = useState(false)
+  const [showPriceModal, setShowPriceModal] = useState(false)
 
   async function handlePredict() {
     const t = ticker.trim().toUpperCase()
@@ -729,8 +1093,9 @@ export default function PredictPrice() {
 
   return (
     <>
-      {showModal     && <ModelExplainModal    onClose={() => setShowModal(false)} />}
-      {showExecModal && <ExecutionGuideModal onClose={() => setShowExecModal(false)} />}
+      {showModal      && <ModelExplainModal     onClose={() => setShowModal(false)} />}
+      {showExecModal  && <ExecutionGuideModal  onClose={() => setShowExecModal(false)} />}
+      {showPriceModal && <PricePredictionModal onClose={() => setShowPriceModal(false)} />}
 
       <div className="predict-layout">
         {/* Left: config */}
@@ -876,6 +1241,25 @@ export default function PredictPrice() {
                     </button>
                   </>
                 )}
+
+                <button
+                  onClick={() => setShowPriceModal(true)}
+                  style={{
+                    width: '100%', padding: '8px 12px',
+                    borderRadius: 8, cursor: 'pointer',
+                    border: '1.5px solid #EDE5D8',
+                    background: '#F9F6F1',
+                    color: 'var(--text-secondary)',
+                    fontSize: 11, fontWeight: 600,
+                    whiteSpace: 'nowrap',
+                    marginBottom: 14,
+                    transition: 'background 0.15s',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#FAF3E0'}
+                  onMouseLeave={e => e.currentTarget.style.background = '#F9F6F1'}
+                >
+                  Tại sao model lại đưa ra mức giá này?
+                </button>
 
                 <div className="price-label">Cổ phiếu</div>
                 <div className="price-ticker-name">
