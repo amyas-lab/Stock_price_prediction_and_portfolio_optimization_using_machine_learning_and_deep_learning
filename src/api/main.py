@@ -54,6 +54,7 @@ except ImportError:
     _SHAP_AVAILABLE = False
     print("  ⚠ shap not installed — /predict/signal/explain will be unavailable")
 from src.api.feature_pipeline import build_live_features, build_xgb_signal_features
+from src.api import disk_cache
 
 # ── Global stores ─────────────────────────────────────────────
 MODELS: dict = {}
@@ -242,6 +243,11 @@ async def predict_price(request: PredictionRequest):
     n_days   = request.n_days_back
     is_known = ticker in KNOWN_TICKERS
 
+    # ── Hourly disk cache ─────────────────────────────────────────
+    cached = disk_cache.get("price", ticker)
+    if cached:
+        return PricePredictionResponse(**cached)
+
     model = MODELS.get("mtl_t4") or MODELS.get("mtl_t3")
     if model is None:
         raise HTTPException(503, "Prediction model not available")
@@ -302,7 +308,7 @@ async def predict_price(request: PredictionRequest):
          reg_pred, cls_pred, current_price,
      )
 
-    return PricePredictionResponse(
+    response = PricePredictionResponse(
         ticker             = ticker,
         prediction_date    = last_date,
         current_price      = current_price,
@@ -315,6 +321,8 @@ async def predict_price(request: PredictionRequest):
         data_source        = data_source,
         historical_prices  = historical_prices,
     )
+    disk_cache.put("price", ticker, response.model_dump())
+    return response
 
 
 @app.post("/predict/signal",
@@ -339,6 +347,18 @@ async def predict_signal(request: SignalRequest):
     data_source   = "fallback-hold"
     feat_vec_out  = None
     feat_ctx_out  = None
+    _use_cache    = False
+
+    # ── Hourly disk cache (threshold-independent raw probs) ───
+    _cached = disk_cache.get("signal", ticker)
+    if _cached:
+        p_buy        = _cached["p_buy"]
+        p_sell       = _cached["p_sell"]
+        p_hold       = _cached["p_hold"]
+        sig_date     = _cached["sig_date"]
+        feat_ctx_out = _cached.get("feat_ctx_out")
+        data_source  = _cached["data_source"]
+        _use_cache   = True
 
     # ── Branch 1: XGBoost T4 live pipeline ───────────────────
     xgb_t4      = MODELS.get("xgb_signal_t4")
@@ -347,7 +367,7 @@ async def predict_signal(request: SignalRequest):
     model_mtl   = MODELS.get("mtl_t4")
     ticker_enc  = MODELS.get("task4_ticker_encoder")
 
-    if is_known and all(
+    if not _use_cache and is_known and all(
         m is not None for m in [xgb_t4, scaler_tech, scaler_new, model_mtl, ticker_enc]
     ):
         try:
@@ -365,7 +385,7 @@ async def predict_signal(request: SignalRequest):
             print(f"  ⚠ XGBoost T4 live pipeline failed for {ticker}: {e}")
 
     # ── Fallback A: pre-computed signal CSV ───────────────────
-    if data_source == "fallback-hold" and is_known and DATA.get("signals") is not None:
+    if not _use_cache and data_source == "fallback-hold" and is_known and DATA.get("signals") is not None:
         sig_df     = DATA["signals"]
         ticker_sig = sig_df[sig_df["ticker"] == ticker].sort_values("date")
         if len(ticker_sig) > 0:
@@ -377,7 +397,7 @@ async def predict_signal(request: SignalRequest):
             data_source = "pre-computed"
 
     # ── Fallback B: MTL classification head ───────────────────
-    if data_source == "fallback-hold":
+    if not _use_cache and data_source == "fallback-hold":
         scaler = MODELS.get("task4_scaler")
         mtl    = MODELS.get("mtl_t4")
         if mtl is None or scaler is None:
@@ -394,6 +414,17 @@ async def predict_signal(request: SignalRequest):
         except Exception:
             p_buy = p_sell = p_hold = 1 / 3
             data_source = "fallback-hold"
+
+    # ── Store raw probs to hourly cache (first request only) ──
+    if not _use_cache and data_source != "fallback-hold":
+        disk_cache.put("signal", ticker, {
+            "p_buy"       : p_buy,
+            "p_sell"      : p_sell,
+            "p_hold"      : p_hold,
+            "sig_date"    : sig_date,
+            "feat_ctx_out": feat_ctx_out,
+            "data_source" : data_source,
+        })
 
     conviction = max(p_buy, p_sell)
 
