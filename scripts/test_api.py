@@ -14,7 +14,7 @@ import time
 import urllib.request
 import urllib.error
 
-DEFAULT_BASE = "https://amyas-lab-investnature.hf.space"
+DEFAULT_BASE = "https://amyas0107-investnature-api.hf.space"
 
 PASS = "\033[92m✓\033[0m"
 FAIL = "\033[91m✗\033[0m"
@@ -29,11 +29,17 @@ def _req(base: str, method: str, path: str, body: dict | None = None) -> tuple[i
         headers={"Content-Type": "application/json"},
         method=method,
     )
+    def _parse(raw: bytes) -> dict:
+        try:
+            return json.loads(raw)
+        except Exception:
+            return {"_raw": raw.decode(errors="replace")[:200]}
+
     try:
         with urllib.request.urlopen(req, timeout=60) as r:
-            return r.status, json.loads(r.read())
+            return r.status, _parse(r.read())
     except urllib.error.HTTPError as e:
-        return e.code, json.loads(e.read())
+        return e.code, _parse(e.read())
     except Exception as e:
         return 0, {"error": str(e)}
 
