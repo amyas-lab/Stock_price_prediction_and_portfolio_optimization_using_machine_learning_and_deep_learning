@@ -721,16 +721,16 @@ export default function PredictPrice() {
                       </span>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 11, color: sigStyle.color, fontWeight: 600 }}>
-                          Tín hiệu XGBoost T4 · Horizon 5 ngày
+                          Tín hiệu XGBoost
                         </div>
                         <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                           Độ tự tin: {(signal.conviction * 100).toFixed(1)}%
                         </div>
                       </div>
                       <div style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted)' }}>
-                        <div>P(MUA) {(signal.p_buy * 100).toFixed(0)}%</div>
-                        <div>P(BÁN) {(signal.p_sell * 100).toFixed(0)}%</div>
-                        <div>P(GIỮ) {(signal.p_hold * 100).toFixed(0)}%</div>
+                        <div>Xác suất MUA: {(signal.p_buy * 100).toFixed(0)}%</div>
+                        <div>Xác suất BÁN: {(signal.p_sell * 100).toFixed(0)}%</div>
+                        <div>Xác suất GIỮ: {(signal.p_hold * 100).toFixed(0)}%</div>
                       </div>
                     </div>
 
@@ -744,15 +744,15 @@ export default function PredictPrice() {
                         background: '#F9F6F1',
                         color: 'var(--text-secondary)',
                         fontSize: 12, fontWeight: 600,
-                        display: 'flex', alignItems: 'center',
-                        justifyContent: 'center', gap: 6,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
                         marginBottom: 14,
                         transition: 'background 0.15s',
                       }}
                       onMouseEnter={e => e.currentTarget.style.background = '#FAF3E0'}
                       onMouseLeave={e => e.currentTarget.style.background = '#F9F6F1'}
                     >
-                      <span>🔍</span>
                       Tại sao model đưa ra khuyến nghị này?
                     </button>
                   </>
