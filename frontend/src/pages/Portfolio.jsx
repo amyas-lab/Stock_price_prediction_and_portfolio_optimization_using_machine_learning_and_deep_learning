@@ -340,6 +340,206 @@ function AccSection({ id, title, open, onToggle, children }) {
   )
 }
 
+// ── AlgoModal ─────────────────────────────────────────────────
+function AlgoModal({ onClose }) {
+  const [tab, setTab] = useState(0)
+  const tabBtn = (active) => ({
+    padding: '9px 18px', fontSize: 13, fontWeight: active ? 700 : 500,
+    color: active ? 'var(--text-primary)' : 'var(--text-muted)',
+    background: 'none', border: 'none',
+    borderBottom: active ? '2px solid #C4A265' : '2px solid transparent',
+    cursor: 'pointer',
+  })
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
+        zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+      }}
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <div style={{
+        background: '#FAF7F2', borderRadius: 16, width: '100%', maxWidth: 700,
+        maxHeight: '90vh', display: 'flex', flexDirection: 'column',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+      }}>
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+          padding: '20px 24px 12px', borderBottom: '1px solid #EDE5D8', flexShrink: 0,
+        }}>
+          <div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}>Tại sao mô hình khuyến nghị như vậy?</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>Quy trình 4 giai đoạn chọn lọc và phân bổ danh mục</div>
+          </div>
+          <button onClick={onClose} style={{
+            background: 'none', border: '1px solid #EDE5D8', borderRadius: 8,
+            width: 32, height: 32, cursor: 'pointer', fontSize: 16, color: 'var(--text-muted)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>×</button>
+        </div>
+
+        <div style={{ display: 'flex', borderBottom: '1px solid #EDE5D8', padding: '0 16px', flexShrink: 0 }}>
+          <button style={tabBtn(tab === 0)} onClick={() => setTab(0)}>Giai đoạn 1-3: Chon loc</button>
+          <button style={tabBtn(tab === 1)} onClick={() => setTab(1)}>Giai đoạn 4: Phân bổ</button>
+        </div>
+
+        <div style={{ overflowY: 'auto', padding: '20px 24px 28px', flex: 1 }}>
+          {tab === 0 && (
+            <div>
+              <div style={{ marginBottom: 22 }}>
+                <div style={{
+                  fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10,
+                  padding: '8px 12px', background: '#F5EFE6', borderRadius: 6, borderLeft: '3px solid #C4A265',
+                }}>Giai đoạn 1 - Điểm lợi nhuận (5-Factor Profitability Score)</div>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, margin: '0 0 10px' }}>
+                  Toàn bộ cổ phiếu được chấm điểm theo 5 yếu tố, mỗi yếu tố chuyển thành thứ hạng phần trăm rồi tổng hợp theo trọng số:
+                </p>
+                {[
+                  ['MTL Trajectory - GRU Encoder-Decoder', 'xác suất tăng giá p_up từ mô hình Multi-Task Learning, huấn luyện đồng thời dự báo lợi nhuận 5 ngày và phân loại xu hướng', '30%'],
+                  ['Task 3 Signal - XGBoost T4', 'xác suất BUY từ mô hình Cascade (GRU -> K-Means -> XGBoost), là lớp ra quyết định cuối cùng', '25%'],
+                  ['Technical Momentum', 'RSI, MACD histogram, tín hiệu EMA crossover 10/20/50, khoảng cách vùng hỗ trợ/kháng cự K-Means', '20%'],
+                  ['Risk-Adjusted Efficiency', 'Sharpe/Sortino lịch sử giai đoạn 2020-2024, điều chỉnh theo RF = 4.5%/năm', '15%'],
+                  ['Trend ADX', 'sức mạnh xu hướng đo bằng Average Directional Index', '10%'],
+                ].map(([name, desc, w], i) => (
+                  <div key={i} style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+                    gap: 10, padding: '6px 10px', borderRadius: 4, marginBottom: 3,
+                    background: i % 2 === 0 ? '#FDFAF6' : 'transparent',
+                  }}>
+                    <span style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                      <strong style={{ color: 'var(--text-primary)' }}>{name}</strong>: {desc}
+                    </span>
+                    <span style={{ fontWeight: 700, color: '#2E7D32', flexShrink: 0, fontSize: 13 }}>{w}</span>
+                  </div>
+                ))}
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '8px 0 0' }}>Top 10 cổ phiếu điểm cao nhất được chuyển sang giai đoạn 2.</p>
+              </div>
+
+              <div style={{ marginBottom: 22 }}>
+                <div style={{
+                  fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10,
+                  padding: '8px 12px', background: '#FFF8E8', borderRadius: 6, borderLeft: '3px solid #E8C97A',
+                }}>Giai đoạn 2 - Điểm rủi ro (5-Factor Risk Score) + Sharpe Stress Test</div>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, margin: '0 0 10px' }}>
+                  Thang điểm 0-10 tổng hợp 5 yếu tố rủi ro (điểm càng cao, rủi ro càng lớn):
+                </p>
+                {[
+                  ['Volatility', 'độ lệch chuẩn lợi nhuận 60 phiên gần nhất, quy về năm (×√252)', '30%'],
+                  ['SELL Exposure', 'xác suất SELL từ XGBoost T4 kết hợp chiều MACD histogram', '25%'],
+                  ['Max Drawdown', 'mức sụt giảm lớn nhất từ đỉnh xuống đáy trong 252 phiên gần nhất', '20%'],
+                  ['Correlation/Sector Penalty', 'hệ số tương quan trung bình với các cổ phiếu còn lại trong danh mục', '15%'],
+                  ['Reversal Risk', 'RSI overbought (> 70) kết hợp khoảng cách gần vùng kháng cự K-Means', '10%'],
+                ].map(([name, desc, w], i) => (
+                  <div key={i} style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+                    gap: 10, padding: '6px 10px', borderRadius: 4, marginBottom: 3,
+                    background: i % 2 === 0 ? '#FDFAF6' : 'transparent',
+                  }}>
+                    <span style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                      <strong style={{ color: 'var(--text-primary)' }}>{name}</strong>: {desc}
+                    </span>
+                    <span style={{ fontWeight: 700, color: '#C0392B', flexShrink: 0, fontSize: 13 }}>{w}</span>
+                  </div>
+                ))}
+                <div style={{
+                  marginTop: 10, padding: '9px 12px', background: '#FFF3E0',
+                  borderRadius: 6, border: '1px solid #FFD180',
+                  fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6,
+                }}>
+                  <strong>Sharpe Stress Test:</strong> Cổ phiếu được gán nhãn SPECULATIVE nếu có điểm lợi nhuận cao (Top 3) nhưng Sharpe lịch sử thấp. Phạt thêm <strong>+1.5 điểm rủi ro</strong> để cảnh báo nguy cơ lợi nhuận quá khứ không bền vững.
+                </div>
+              </div>
+
+              <div>
+                <div style={{
+                  fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10,
+                  padding: '8px 12px', background: '#EFF4FF', borderRadius: 6, borderLeft: '3px solid #A8C0F0',
+                }}>Giai đoạn 3 - Lọc rủi ro theo khẩu vị</div>
+                {[
+                  ['Thận trọng', '#1565C0', 'Chỉ giữ cổ phiếu có Điểm rủi ro ≤ 5.0. Loại bỏ hoàn toàn các cổ phiếu đầu cơ và biến động cao.'],
+                  ['Cân bằng', '#2E7D32', 'Giữ cổ phiếu có Điểm rủi ro ≤ 7.0. Cân bằng giữa lợi nhuận và an toàn.'],
+                  ['Tích cực', '#C0392B', 'Giữ cổ phiếu có Điểm rủi ro ≤ 7.0, chấp nhận biến động cao hơn để tối đa hóa lợi nhuận.'],
+                ].map(([label, color, desc], i) => (
+                  <div key={i} style={{
+                    display: 'flex', alignItems: 'flex-start', gap: 8, padding: '7px 10px',
+                    background: i % 2 === 0 ? '#FDFAF6' : 'transparent', borderRadius: 4, marginBottom: 3,
+                  }}>
+                    <span style={{ fontWeight: 700, color, whiteSpace: 'nowrap', fontSize: 13 }}>{label}:</span>
+                    <span style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{desc}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {tab === 1 && (
+            <div>
+              <div style={{ marginBottom: 24 }}>
+                <div style={{
+                  fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10,
+                  padding: '8px 12px', background: '#EDFAF2', borderRadius: 6, borderLeft: '3px solid #A8D5B8',
+                }}>Chiến lược Cân bằng: Equal-Weight 1/N</div>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, margin: '0 0 10px' }}>
+                  Không có bài toán tối ưu hóa. Mỗi cổ phiếu trong Top 10 nhận đúng 10% danh mục, không ưu tiên cổ phiếu nào hơn dựa trên dữ liệu lịch sử.
+                </p>
+                <div style={{
+                  padding: '10px 14px', background: '#F5EFE6', borderRadius: 6,
+                  fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 10,
+                }}>
+                  <strong>Lý thuyết (DeMiguel et al., 2009):</strong> Phân bổ đều 1/N thường thắng MVO out-of-sample vì tránh được sai số tích lũy khi ước lượng ma trận hiệp phương sai Σ. Kiểm chứng trên 14 bộ dữ liệu thực tế: lỗi ước lượng Σ thường lớn hơn lợi ích của tối ưu hóa.
+                </div>
+                <div style={{
+                  padding: '10px 14px', background: '#FFF8E8', borderRadius: 6,
+                  fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 10,
+                  border: '1px solid #F5DFA0',
+                }}>
+                  <strong>VIC outlier - ví dụ minh họa:</strong> VIC tăng <strong>+678%</strong> trong giai đoạn kiểm thử (24/01/2025 - 20/04/2026). Equal-Weight phân bổ đúng 10%. MVO Tích cực chỉ phân bổ 2% vì biến động lịch sử của VIC trong 2020-2024 quá cao - SLSQP đánh giá VIC là rủi ro. Một cổ phiếu này đóng góp phần lớn chênh lệch kết quả giữa hai chiến lược.
+                </div>
+                <div style={{
+                  padding: '9px 14px', background: '#EDFAF2', border: '1px solid #A8D5B8',
+                  borderRadius: 6, fontSize: 13, color: '#2E7D32', fontWeight: 600,
+                }}>
+                  Kết quả kiểm thử: Lợi nhuận tích lũy 65.90% · Sharpe Ratio 1.6201 · Biến động 25.30%/năm
+                </div>
+              </div>
+
+              <div>
+                <div style={{
+                  fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10,
+                  padding: '8px 12px', background: '#F5EFE6', borderRadius: 6, borderLeft: '3px solid #C4A265',
+                }}>Chiến lược Thận trọng và Tích cực: Markowitz MVO (SLSQP)</div>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, margin: '0 0 10px' }}>
+                  Tìm tỷ trọng tối ưu bằng thuật toán SLSQP (Sequential Least Squares Programming):
+                </p>
+                <div style={{
+                  background: '#F5EFE6', borderRadius: 6, padding: '10px 14px', marginBottom: 10,
+                  fontFamily: 'monospace', fontSize: 13, color: 'var(--text-primary)', textAlign: 'center',
+                }}>
+                  Tối đa hóa: Sharpe = (w<sup>T</sup> μ<sub>annual</sub> − RF) / √(w<sup>T</sup> Σ<sub>annual</sub> w)
+                </div>
+                {[
+                  ['RF', '4.5%/năm - lãi suất phi rủi ro tương đương trái phiếu Chính phủ VN'],
+                  ['Ràng buộc', 'Tổng tỷ trọng = 100% · 2% ≤ w_i ≤ 30% mỗi cổ phiếu · Không bán khống'],
+                  ['Pre-annualization', 'μ và Σ nhân 252 trước khi đưa vào SLSQP để gradient ổn định hơn'],
+                  ['Thận trọng', 'Thay mục tiêu: tối thiểu hóa phương sai danh mục thay vì tối đa hóa Sharpe, phù hợp ưu tiên ổn định'],
+                ].map(([name, desc], i) => (
+                  <div key={i} style={{
+                    padding: '6px 10px', borderRadius: 4, marginBottom: 3,
+                    background: i % 2 === 0 ? '#FDFAF6' : 'transparent',
+                    fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5,
+                  }}>
+                    <strong style={{ color: 'var(--text-primary)' }}>{name}:</strong> {desc}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── main component ────────────────────────────────────────────
 export default function Portfolio() {
   const [riskIdx,      setRiskIdx]      = useState(1)
@@ -357,6 +557,7 @@ export default function Portfolio() {
   const [accOpen,      setAccOpen]      = useState({})
   const [stratModal,   setStratModal]   = useState(null)  // 'prudent' | 'equal_weight' | 'risk_taking'
   const [scoreModal,   setScoreModal]   = useState(null)  // 'profit' | 'risk'
+  const [showAlgoModal,setShowAlgoModal]= useState(false)
 
   const toggleAcc = id => setAccOpen(prev => ({ ...prev, [id]: !prev[id] }))
   const profile = PROFILE_MAP[riskIdx]
@@ -458,6 +659,7 @@ export default function Portfolio() {
           onClose={() => setScoreModal(null)}
         />
       )}
+      {showAlgoModal && <AlgoModal onClose={() => setShowAlgoModal(false)} />}
 
       <h1 className="page-title"><PieIcon size={26} color="var(--gold)" /> Tối ưu hóa danh mục đầu tư</h1>
       <p className="page-subtitle">Phân bổ tài sản thông minh để đạt mục tiêu lợi nhuận và kiểm soát rủi ro</p>
@@ -577,6 +779,17 @@ export default function Portfolio() {
                 Cập nhật lúc {lastFetched.toLocaleTimeString('vi-VN')}
               </div>
             )}
+            <button
+              style={{
+                width: '100%', marginTop: 10, padding: '8px 14px',
+                background: 'none', border: '1px solid #D4C090', borderRadius: 8,
+                fontSize: 13, color: 'var(--text-secondary)', cursor: 'pointer',
+                fontWeight: 500,
+              }}
+              onClick={() => setShowAlgoModal(true)}
+            >
+              Tại sao mô hình khuyến nghị như vậy?
+            </button>
           </div>
 
           {/* Asset list */}
