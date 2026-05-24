@@ -844,7 +844,7 @@ function PricePredictionModal({ onClose }) {
                     <li>Fetch dữ liệu live từ VNSTOCK / TCBS</li>
                     <li>Tính 25 features trên buffer 130 ngày</li>
                     <li>Trích sliding window 20 phiên cuối</li>
-                    <li>Áp MinMaxScaler (fit trên train set)</li>
+                    <li>Áp StandardScaler (fit trên train set)</li>
                   </ul>
                 </div>
               </div>
@@ -869,8 +869,8 @@ function PricePredictionModal({ onClose }) {
                   color: '#9E7E45', bg: '#FFF8E1',
                 },
                 {
-                  step: 'Bước 3: Sliding Window 20 phiên + MinMaxScaler',
-                  body: 'Sau khi tính đủ 25 features, hệ thống trích cửa sổ 20 phiên giao dịch cuối cùng (W=20) và áp dụng MinMaxScaler đã được fit trên tập train. Scaler đóng băng theo mô hình — không re-fit trên data mới — đảm bảo phân phối đầu vào khớp với phân phối lúc training. Kết quả: tensor shape [1, 20, 25] → feed vào GRU.',
+                  step: 'Bước 3: Sliding Window 20 phiên + StandardScaler',
+                  body: 'Sau khi tính đủ 25 features, hệ thống trích cửa sổ 20 phiên giao dịch cuối cùng (W=20) và áp dụng StandardScaler đã được fit trên tập train (chuẩn hóa về μ=0, σ=1). Scaler đóng băng theo mô hình — không re-fit trên data mới — đảm bảo phân phối đầu vào khớp với phân phối lúc training. Kết quả: tensor shape [1, 20, 25] → feed vào GRU.',
                   color: '#4A7C5F', bg: '#E8F5E9',
                 },
               ].map((item, i) => (
@@ -892,7 +892,7 @@ function PricePredictionModal({ onClose }) {
                 </div>
                 {[
                   { name: 'log_return', desc: 'Tỷ suất sinh lời log phiên: ln(Close_t / Close_{t-1})' },
-                  { name: 'close_normalized', desc: 'Giá đóng cửa đã chuẩn hóa MinMax theo toàn chuỗi train' },
+                  { name: 'close_normalized', desc: 'Giá đóng cửa đã chuẩn hóa Standard (μ=0, σ=1) theo toàn chuỗi train' },
                   { name: 'rsi_14', desc: 'Relative Strength Index 14 phiên' },
                   { name: 'macd', desc: 'MACD line: EMA(12) − EMA(26)' },
                   { name: 'macd_signal', desc: 'Signal line: EMA(9) của MACD' },
