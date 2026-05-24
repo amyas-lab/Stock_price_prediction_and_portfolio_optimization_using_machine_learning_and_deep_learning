@@ -839,7 +839,7 @@ export default function PredictPrice() {
                             border: `1px solid ${sigStyle.color}55`,
                             background: 'rgba(255,255,255,0.6)',
                             color: sigStyle.color, fontSize: 11, fontWeight: 700,
-                            marginBottom: 4, display: 'inline-block',
+                            marginBottom: 4, display: 'block',
                           }}
                         >
                           Cách thực thi
