@@ -31,6 +31,15 @@ class PortfolioRequest(BaseModel):
         description="Portfolio profile: risk_taking, prudent, equal_weight"
     )
 
+class ComputeRequest(BaseModel):
+    tickers : List[str]
+    weights : Dict[str, float]
+
+class ComputeResponse(BaseModel):
+    expected_return : float
+    expected_vol    : float
+    sharpe_ratio    : float
+
 
 # ── Response Schemas ──────────────────────────────────────────
 class PricePredictionResponse(BaseModel):

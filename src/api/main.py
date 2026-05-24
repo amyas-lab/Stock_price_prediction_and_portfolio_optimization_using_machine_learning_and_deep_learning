@@ -39,6 +39,7 @@ from src.api.config import (
 )
 from src.api.models import (
     PredictionRequest, SignalRequest, PortfolioRequest,
+    ComputeRequest, ComputeResponse,
     PricePredictionResponse, SignalResponse,
     PortfolioResponse, PortfolioStock,
     ProfitabilityResponse, ProfitabilityScore,
@@ -571,7 +572,7 @@ async def get_portfolio(profile: str):
     perf = {
         "Risk-Taking" : (0.3573, 0.2952, 0.8596),
         "Prudent"     : (0.1644, 0.2480, 0.4550),
-        "Equal-Weight": (0.5393, 0.2477, 1.3969),
+        "Equal-Weight": (0.6590, 0.2530, 1.6201),
     }
     ret, vol, sr = perf[profile_map[profile]]
 
@@ -582,6 +583,58 @@ async def get_portfolio(profile: str):
         expected_vol    = round(vol, 4),
         sharpe_ratio    = round(sr,  4),
         total_stocks    = len(stocks),
+    )
+
+
+RF_ANNUAL = 0.045  # risk-free rate for Sharpe
+
+@app.post("/portfolio/compute",
+          response_model=ComputeResponse,
+          tags=["Portfolio"])
+async def compute_portfolio(req: ComputeRequest):
+    """Compute annualised return, vol, and Sharpe for custom tickers + weights."""
+    from scipy.optimize import minimize  # noqa: F401 — not needed but keep scipy import scoped
+
+    if DATA.get("master_features") is None:
+        raise HTTPException(503, "Master features not available")
+
+    df = DATA["master_features"]
+
+    # Use test-period data only (after 2025-01-24)
+    test_df = df[df["date"] > pd.Timestamp("2025-01-24")]
+
+    unknown = [t for t in req.tickers if t not in df["ticker"].values]
+    if unknown:
+        raise HTTPException(400, f"Unknown tickers: {unknown}")
+
+    # Build returns matrix: rows = dates, cols = tickers
+    pivot = (
+        test_df[test_df["ticker"].isin(req.tickers)]
+        .pivot_table(index="date", columns="ticker", values="log_return_1d")
+        .dropna()
+    )
+    if pivot.empty:
+        raise HTTPException(400, "No overlapping data for given tickers in test period")
+
+    mean_ret_ann = pivot.mean().values * 252
+    cov_mat_ann  = pivot.cov().values  * 252
+
+    # Align weights to pivot column order
+    w = np.array([req.weights.get(t, 0.0) for t in pivot.columns], dtype=float)
+    w_sum = w.sum()
+    if w_sum < 1e-9:
+        raise HTTPException(400, "Weights sum to zero")
+    w = w / w_sum  # normalise in case of floating-point drift
+
+    port_ret = float(w @ mean_ret_ann)
+    port_var = float(w @ cov_mat_ann @ w)
+    port_vol = float(np.sqrt(max(port_var, 0.0)))
+    sharpe   = (port_ret - RF_ANNUAL) / port_vol if port_vol > 1e-9 else 0.0
+
+    return ComputeResponse(
+        expected_return = round(port_ret, 4),
+        expected_vol    = round(port_vol, 4),
+        sharpe_ratio    = round(sharpe,   4),
     )
 
 

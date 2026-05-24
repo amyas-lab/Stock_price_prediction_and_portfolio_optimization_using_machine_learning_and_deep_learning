@@ -45,6 +45,11 @@ export async function fetchRiskScores() {
   return data
 }
 
+export async function computePortfolio(tickers, weights) {
+  const { data } = await http.post('/portfolio/compute', { tickers, weights })
+  return data
+}
+
 export async function checkHealth() {
   const { data } = await http.get('/health')
   return data
