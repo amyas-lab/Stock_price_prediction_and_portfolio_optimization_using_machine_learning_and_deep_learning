@@ -95,64 +95,70 @@ const SIGNAL_STYLE = {
   HOLD: { bg: '#FFF8E1', color: '#9E7E45', label: 'GIỮ' },
 }
 
-// ── Model Explanation Modal ───────────────────────────────────
+// ── Feature groups for section 6 ─────────────────────────────
 
 const FEATURE_GROUPS = [
   {
-    title: 'Lớp 1 — Meta-features từ mạng Học sâu (3 tính năng)',
+    title: 'Lớp 1: Meta-features từ mạng Học sâu (3 tính năng)',
     color: '#4A7C5F',
     bg: '#E8F5E9',
     features: [
-      { name: 'mtl_p_up', desc: 'Xác suất (0–1) model Deep Learning dự báo giá tăng vượt +2.0% trong 5 phiên tới.' },
-      { name: 'mtl_p_down', desc: 'Xác suất (0–1) model Deep Learning dự báo giá giảm dưới −1.5% trong 5 phiên tới.' },
-      { name: 'mtl_conviction', desc: 'Độ tự tin tối đa = max(mtl_p_up, mtl_p_down). Lọc bỏ trạng thái thị trường đi ngang (Sideways).' },
+      { name: 'mtl_p_up', desc: 'Xác suất (0 đến 1) mô hình Deep Learning dự báo giá sẽ nằm trong kịch bản tăng trưởng vượt ngưỡng +2.0% trong 5 phiên tới.' },
+      { name: 'mtl_p_down', desc: 'Xác suất (0 đến 1) mô hình Deep Learning dự báo giá sẽ rơi vào kịch bản sụt giảm dưới ngưỡng −1.5% trong 5 phiên tới.' },
+      { name: 'mtl_conviction', desc: 'Độ tự tin tối đa = max(mtl_p_up, mtl_p_down). Đóng vai trò làm màng lọc loại bỏ trạng thái thị trường đi ngang (Sideways).' },
     ],
   },
   {
-    title: 'Lớp 2 — Hình học vùng giá cản K-Means (5 tính năng)',
+    title: 'Lớp 2: Hình học vùng giá cản K-Means (5 tính năng)',
     color: '#9E7E45',
     bg: '#FFF8E1',
     features: [
-      { name: 'sr_distance_pct', desc: 'Khoảng cách (%) từ giá hiện tại đến tâm vùng cản gần nhất. Dương = trên hỗ trợ, âm = dưới kháng cự.' },
-      { name: 'sr_breakout_up', desc: 'Nhị phân (0/1). = 1 khi giá cắt dứt khoát lên trên vùng kháng cự (+0.5% zone).' },
-      { name: 'sr_breakout_down', desc: 'Nhị phân (0/1). = 1 khi giá đâm thủng xuống dưới vùng hỗ trợ (−0.5% zone).' },
-      { name: 'sr_near_resistance', desc: 'Chỉ thị (0/1). = 1 nếu giá cách vùng kháng cự phía trên < 0.5%. Vùng rủi ro đảo chiều.' },
-      { name: 'sr_near_support', desc: 'Chỉ thị (0/1). = 1 nếu giá cách vùng hỗ trợ phía dưới < 0.5%. Vùng có lực cầu tiềm năng.' },
+      { name: 'sr_distance_pct', desc: 'Khoảng cách tương đối (%) từ giá đóng cửa hiện tại đến tâm vùng cản K-Means gần nhất. Dương (+) = trên hỗ trợ; âm (−) = dưới kháng cự.' },
+      { name: 'sr_breakout_up', desc: 'Nhị phân (1/0). Trả về 1.0 nếu giá đóng cửa hôm nay cắt dứt khoát lên trên biên an toàn (+0.5%) của vùng kháng cự lịch sử.' },
+      { name: 'sr_breakout_down', desc: 'Nhị phân (1/0). Trả về 1.0 nếu giá đóng cửa hôm nay đâm thủng xuống dưới biên an toàn (−0.5%) của vùng hỗ trợ lịch sử.' },
+      { name: 'sr_near_resistance', desc: 'Chỉ thị (1/0). Kích hoạt bằng 1.0 nếu giá cách vùng kháng cự phía trên < 0.5%. Báo hiệu vùng rủi ro đảo chiều hoặc chuẩn bị nén giá breakout.' },
+      { name: 'sr_near_support', desc: 'Chỉ thị (1/0). Kích hoạt bằng 1.0 nếu giá cách vùng hỗ trợ phía dưới < 0.5%. Báo hiệu vùng có lực cầu đỡ giá tiềm năng.' },
     ],
   },
   {
-    title: 'Lớp 3 — Giao cắt đường trung bình động MA (7 tính năng)',
+    title: 'Lớp 3: Giao cắt đường trung bình động MA (7 tính năng)',
     color: '#5B7FA6',
     bg: '#E8F0FB',
     features: [
-      { name: 'ma_golden_cross_short', desc: 'Sự kiện (0/1). = 1 tại phiên EMA-10 cắt lên EMA-20 → xu hướng tăng ngắn hạn bắt đầu.' },
-      { name: 'ma_death_cross_short', desc: 'Sự kiện (0/1). = 1 tại phiên EMA-10 cắt xuống EMA-20 → xu hướng giảm ngắn hạn bắt đầu.' },
-      { name: 'ma_golden_cross_long', desc: 'Sự kiện (0/1). = 1 tại phiên EMA-20 cắt lên EMA-50 → xác nhận pha tăng trung hạn.' },
-      { name: 'ma_death_cross_long', desc: 'Sự kiện (0/1). = 1 tại phiên EMA-20 cắt xuống EMA-50 → xác nhận pha giảm trung hạn.' },
-      { name: 'ma_short_gap_pct', desc: '(EMA₁₀ − EMA₂₀) / EMA₂₀ × 100. Độ rộng phân kỳ ngắn hạn — giá trị càng lớn thể hiện gia tốc tăng càng mạnh.' },
-      { name: 'ma_long_gap_pct', desc: '(EMA₂₀ − EMA₅₀) / EMA₅₀ × 100. Độ bền vững xu hướng trung hạn.' },
-      { name: 'ma_alignment', desc: '+1 nếu EMA₁₀ > EMA₂₀ > EMA₅₀ (toàn tăng), −1 nếu ngược lại (toàn giảm), 0 nếu đan xen (Sideways).' },
+      { name: 'ma_golden_cross_short', desc: 'Sự kiện (1/0). Kích hoạt duy nhất tại phiên EMA-10 cắt lên EMA-20 → xu hướng tăng ngắn hạn bắt đầu.' },
+      { name: 'ma_death_cross_short', desc: 'Sự kiện (1/0). Kích hoạt duy nhất tại phiên EMA-10 cắt xuống EMA-20 → xu hướng giảm ngắn hạn bắt đầu.' },
+      { name: 'ma_golden_cross_long', desc: 'Sự kiện (1/0). Kích hoạt duy nhất tại phiên EMA-20 cắt lên EMA-50 → xác nhận pha tăng giá trung hạn (Macro Bull Regime).' },
+      { name: 'ma_death_cross_long', desc: 'Sự kiện (1/0). Kích hoạt duy nhất tại phiên EMA-20 cắt xuống EMA-50 → xác nhận pha giảm giá trung hạn (Macro Bear Regime).' },
+      { name: 'ma_short_gap_pct', desc: '(EMA₁₀ − EMA₂₀) / EMA₂₀ × 100. Độ rộng phân kỳ ngắn hạn — giá trị càng lớn thể hiện gia tốc tăng giá càng mạnh.' },
+      { name: 'ma_long_gap_pct', desc: '(EMA₂₀ − EMA₅₀) / EMA₅₀ × 100. Đo lường độ bền vững của xu hướng trung hạn.' },
+      { name: 'ma_alignment', desc: '+1.0 nếu EMA₁₀ > EMA₂₀ > EMA₅₀ (toàn tăng); −1.0 nếu ngược lại (toàn giảm); 0.0 nếu các đường MA đan xen (Sideways).' },
     ],
   },
   {
-    title: 'Lớp 4 — Chỉ báo kỹ thuật cổ phiếu + VN-Index macro (27 tính năng)',
+    title: 'Lớp 4: Chỉ báo kỹ thuật cổ phiếu + VN-Index macro (27 tính năng)',
     color: '#7B5EA7',
     bg: '#F3EEF9',
     features: [
-      { name: 'rsi_14', desc: 'Relative Strength Index 14 phiên — đo trạng thái quá mua/quá bán của cổ phiếu mục tiêu.' },
-      { name: 'macd / macd_signal / macd_hist', desc: 'MACD và histogram phân kỳ — phát hiện sớm tín hiệu đảo chiều.' },
+      { name: 'vni_log_return', desc: 'Tỷ suất sinh lời log từng phiên của VN-Index — cung cấp bối cảnh hệ số Beta và sức khỏe toàn thị trường chung.' },
+      { name: 'vni_rsi', desc: 'RSI của VN-Index — giúp mô hình nhận diện thị trường chung đang quá hưng phấn (Overbought) hay hoảng loạn (Oversold).' },
+      { name: 'vni_macd / signal / hist / ema_10 / bb_upper / bb_lower / atr', desc: 'Toàn bộ chỉ báo momentum và biến động của VN-Index — làm màng lọc vĩ mô hệ thống.' },
+      { name: 'rsi_14', desc: 'RSI 14 phiên của cổ phiếu mục tiêu.' },
+      { name: 'macd', desc: 'Đường MACD (EMA-12 − EMA-26) của cổ phiếu mục tiêu.' },
+      { name: 'macd_signal', desc: 'Đường tín hiệu MACD (EMA-9 của đường MACD).' },
+      { name: 'macd_hist', desc: 'MACD Histogram (MACD − MACD_signal) — phát hiện sớm tín hiệu phân kỳ đảo chiều.' },
       { name: 'bb_upper / bb_lower', desc: 'Bollinger Bands (SMA-20 ± 2σ) — vùng biên kỹ thuật trên/dưới của giá.' },
       { name: 'atr_14', desc: 'Average True Range — đo biến động tuyệt đối, dùng để tự động điều chỉnh mức stoploss.' },
-      { name: 'ema_10 / ema_20 / ema_50', desc: 'Đường trung bình hàm mũ ngắn/trung/dài hạn của cổ phiếu.' },
-      { name: 'vni_* (12 features)', desc: 'Toàn bộ chỉ báo trên nhưng áp dụng cho VN-Index — làm màng lọc bối cảnh thị trường vĩ mô.' },
-      { name: 'ticker_encoded', desc: 'Định danh số hóa (0–26) của cổ phiếu. Giúp XGBoost học hành vi riêng từng ngành: FPT (công nghệ) khác VCB (ngân hàng).' },
+      { name: 'obv', desc: 'On-Balance Volume — đo áp lực dòng tiền mua tích lũy dựa trên kết hợp khối lượng và hướng đi của giá.' },
+      { name: 'Stochastic %K/%D, CMF, ROC, MFI...', desc: 'Các chỉ báo động lượng bổ trợ được giữ lại sau Feature Pruning nhờ điểm Feature Importance vượt mức trung bình.' },
+      { name: 'ticker_encoded', desc: 'Định danh số hóa (0 đến N−1) của cổ phiếu. Giúp XGBoost học được hành vi giá riêng từng ngành: FPT (công nghệ) khác VCB (ngân hàng) về độ nhảy giá và tính giữ nền tài sản.' },
     ],
   },
 ]
 
+// ── Model Explanation Modal ───────────────────────────────────
+
 function ModelExplainModal({ onClose }) {
   const [openSection, setOpenSection] = useState(null)
-
   const toggle = (id) => setOpenSection(prev => prev === id ? null : id)
 
   const Section = ({ id, title, children }) => (
@@ -185,12 +191,17 @@ function ModelExplainModal({ onClose }) {
     </div>
   )
 
+  const P = ({ children, style }) => (
+    <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 10, ...style }}>{children}</p>
+  )
+
   return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
-      zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: '16px',
-    }}
+    <div
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
+        zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '16px',
+      }}
       onClick={e => e.target === e.currentTarget && onClose()}
     >
       <div style={{
@@ -263,15 +274,23 @@ function ModelExplainModal({ onClose }) {
             </div>
           </div>
 
-          {/* Sections */}
-          <Section id="arch" title="1. Bản thiết kế hệ thống — Cascade Model (Mô hình xếp chồng phân cấp)">
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 10 }}>
-              Thay vì dùng một mạng nơ-ron sâu duy nhất (dễ bị bẫy nhiễu trên thị trường HOSE), hệ thống phân tách bài toán thành hai lớp tối ưu:
-            </p>
+          {/* ── Section 1 ── */}
+          <Section id="arch" title="1. Bản thiết kế hệ thống: Cascade Model (Mô hình xếp chồng phân cấp)">
+            <P>
+              Hệ thống phát hiện tín hiệu giao dịch áp dụng cấu trúc Cascade Model. Thay vì sử dụng một mạng nơ-ron sâu duy nhất để đưa ra quyết định thẳng từ dữ liệu thô (vốn rất dễ bị bẫy nhiễu trên thị trường HOSE), hệ thống phân tách bài toán thành hai lớp xử lý tối ưu:
+            </P>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               {[
-                { title: 'Lớp 1 — Deep Sequential Extractor', body: 'GRU + Multi-Head Attention trích xuất động lực dòng tiền từ chuỗi lịch sử 20 phiên. Đầu ra: 3 meta-features thể hiện "niềm tin tiên nghiệm" của mạng sâu.', color: '#4A7C5F', bg: '#E8F5E9' },
-                { title: 'Lớp 2 — Tabular Aggregator & Gate', body: 'XGBoost tích hợp thông tin xu hướng từ lớp 1 với không gian hình học S/R và chỉ báo động lượng để đưa ra xác suất hành động cuối cùng.', color: '#7B5EA7', bg: '#F3EEF9' },
+                {
+                  title: 'Lớp 1: Deep Sequential Feature Extractor',
+                  body: 'Sử dụng mạng Học sâu kết hợp GRU và Multi-Head Attention để giải mã động lực dòng tiền từ chuỗi lịch sử trượt 20 phiên.',
+                  color: '#4A7C5F', bg: '#E8F5E9',
+                },
+                {
+                  title: 'Lớp 2: Tabular Aggregator & Gate',
+                  body: 'Sử dụng XGBoost Classifier để tích hợp thông tin xu hướng từ lớp Học sâu với không gian hình học S/R và chỉ báo động lượng, đưa ra xác suất hành động cuối cùng.',
+                  color: '#7B5EA7', bg: '#F3EEF9',
+                },
               ].map(c => (
                 <div key={c.title} style={{ padding: 14, borderRadius: 10, background: c.bg, border: `1px solid ${c.color}33` }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: c.color, marginBottom: 6 }}>{c.title}</div>
@@ -281,52 +300,89 @@ function ModelExplainModal({ onClose }) {
             </div>
           </Section>
 
-          <Section id="gru" title="2. Lớp học sâu — GRU & Multi-Head Attention">
+          {/* ── Section 2 ── */}
+          <Section id="gru" title="2. Lớp học sâu trích xuất bối cảnh thời gian: GRU & Attention">
             <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-              <p><strong>Cửa sổ trượt W=20 phiên</strong> — tương đương 1 tháng giao dịch. Mô hình quét chuỗi thời gian và cập nhật qua hai cổng toán học:</p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, margin: '12px 0' }}>
+              <P>
+                Mô hình nạp dữ liệu dưới dạng chuỗi thời gian trượt (Sliding Window) có độ dài <strong>20 phiên liên tiếp</strong> (W=20, tương đương một tháng giao dịch).
+              </P>
+
+              <div style={{ fontWeight: 700, fontSize: 12, color: '#4A7C5F', marginBottom: 8 }}>Cơ chế tính toán của mạng GRU</div>
+              <P>Mạng GRU giải quyết bài toán phụ thuộc dài hạn bằng cách quét qua 20 ngày và cập nhật thông tin qua hai cổng toán học:</P>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
                 <div style={{ padding: 12, background: '#E8F5E9', borderRadius: 8 }}>
-                  <div style={{ fontWeight: 700, fontSize: 12, color: '#4A7C5F', marginBottom: 4 }}>Update Gate</div>
+                  <div style={{ fontWeight: 700, fontSize: 12, color: '#4A7C5F', marginBottom: 4 }}>Update Gate (Cổng cập nhật)</div>
                   <div style={{ fontSize: 12 }}>Quyết định lượng thông tin từ xu hướng quá khứ cần truyền tiếp — ví dụ: trạng thái tích lũy/đè giá kéo dài của dòng tiền lớn.</div>
                 </div>
                 <div style={{ padding: 12, background: '#FFF8E1', borderRadius: 8 }}>
-                  <div style={{ fontWeight: 700, fontSize: 12, color: '#9E7E45', marginBottom: 4 }}>Reset Gate</div>
-                  <div style={{ fontSize: 12 }}>Loại bỏ nhiễu ngắn hạn — ví dụ: biến động kỹ thuật do đáo hạn phái sinh.</div>
+                  <div style={{ fontWeight: 700, fontSize: 12, color: '#9E7E45', marginBottom: 4 }}>Reset Gate (Cổng thiết lập lại)</div>
+                  <div style={{ fontSize: 12 }}>Quyết định lượng thông tin nhiễu ngắn hạn cần loại bỏ — ví dụ: biến động kỹ thuật do đáo hạn phái sinh.</div>
                 </div>
               </div>
-              <p><strong>Multi-Head Attention (2 heads)</strong>: Tính điểm tương quan giữa tất cả các ngày trong cửa sổ 20 phiên. Tự động "bơm trọng số" vào các phiên có hành vi đặc biệt (FTD bùng nổ, Washout ép bán).</p>
-              <p style={{ marginTop: 10 }}><strong>Multi-Task Loss:</strong></p>
-              <div style={{ background: '#F5F0FF', borderRadius: 8, padding: '10px 14px', fontFamily: 'monospace', fontSize: 12, margin: '8px 0' }}>
+
+              <div style={{ fontWeight: 700, fontSize: 12, color: '#4A7C5F', marginBottom: 8 }}>Cơ chế chú ý đa đầu (Multi-Head Attention)</div>
+              <P>
+                Hệ thống không chỉ lấy trạng thái cuối cùng của GRU mà ép tensor qua một lớp <strong>Multi-Head Attention (2 Heads)</strong>. Cơ chế này tính điểm tương quan giữa tất cả các ngày trong cửa sổ 20 phiên, cho phép mô hình "bơm thêm trọng số" vào các phiên có hành vi đặc biệt (như phiên FTD bùng nổ theo đà hoặc phiên ép bán Washout).
+              </P>
+
+              <div style={{ fontWeight: 700, fontSize: 12, color: '#4A7C5F', marginBottom: 8 }}>Mục tiêu tối ưu hóa đa nhiệm (Multi-Task Learning)</div>
+              <P>Mô hình phải giải đồng thời 2 tác vụ: vừa dự đoán quỹ đạo log-return 5 ngày (Regression Head), vừa phân loại xu hướng thị trường (Classification Head).</P>
+              <div style={{ background: '#F5F0FF', borderRadius: 8, padding: '10px 14px', fontFamily: 'monospace', fontSize: 12, margin: '8px 0 12px' }}>
                 L_total = L_Huber(quỹ đạo 5 ngày) + <strong style={{ color: '#7B5EA7' }}>5.0</strong> × L_CrossEntropy(xu hướng)
               </div>
-              <p>Hệ số phạt <code style={{ background: '#eee', padding: '1px 4px', borderRadius: 3 }}>λ_cls = 5.0</code> ép mạng phải ưu tiên trích xuất <em>Directional Alpha</em> — biết đúng hướng quan trọng hơn biết chính xác biên độ.</p>
+              <P>
+                Hệ số phạt <code style={{ background: '#eee', padding: '1px 4px', borderRadius: 3 }}>λ_cls = 5.0</code> ép mạng phải ưu tiên trích xuất <em>Directional Accuracy</em> — biết đúng hướng quan trọng hơn biết chính xác biên độ. Đầu ra cung cấp 3 Meta-features đại diện cho "Niềm tin tiên nghiệm" (Prior Belief) của mạng sâu.
+              </P>
             </div>
           </Section>
 
-          <Section id="kmeans" title="3. Hình học hóa tâm lý thị trường — K-Means Clustering">
+          {/* ── Section 3 ── */}
+          <Section id="kmeans" title="3. Lớp hình học hóa tâm lý thị trường: K-Means Clustering">
             <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-              <p>Cửa sổ lịch sử <strong>63 phiên (3 tháng)</strong>. Tự động tìm số vùng cản tối ưu bằng Elbow Method:</p>
-              <div style={{ background: '#F5F0FF', borderRadius: 8, padding: '10px 14px', fontFamily: 'monospace', fontSize: 12, margin: '10px 0' }}>
+              <P>
+                Để số hóa các vùng tâm lý mua/bán của nhà đầu tư thành biến số liên tục, hệ thống áp dụng K-Means Clustering trên cửa sổ lịch sử <strong>63 phiên (3 tháng)</strong>.
+              </P>
+
+              <div style={{ fontWeight: 700, fontSize: 12, color: '#9E7E45', marginBottom: 8 }}>Tự động xác định số vùng cản: Elbow Method</div>
+              <P>
+                Hệ thống tính hàm tổng bình phương khoảng cách trong cụm (Inertia) với k ∈ [2, 11]. Thuật toán tính đạo hàm bậc hai của chuỗi Inertia để tìm điểm gãy tối ưu:
+              </P>
+              <div style={{ background: '#F5F0FF', borderRadius: 8, padding: '10px 14px', fontFamily: 'monospace', fontSize: 12, margin: '10px 0 12px' }}>
                 k_optimal = argmax_k [ (I_k₊₁ − I_k) − (I_k − I_k₋₁) ]
               </div>
-              <p>Tìm điểm gãy (Elbow) của chuỗi Inertia với k ∈ [2, 11]. Mỗi cổ phiếu có cấu trúc cản riêng — ngân hàng đi nền chặt ít vùng cản hơn bất động sản biến động mạnh.</p>
-              <div style={{ padding: 12, background: '#FFF8E1', borderRadius: 8, marginTop: 10 }}>
+              <P>
+                Cấu trúc cản tự thích ứng với từng cổ phiếu riêng biệt — mã ngân hàng đi nền chặt có ít vùng cản hơn mã bất động sản biến động mạnh.
+              </P>
+
+              <div style={{ padding: 12, background: '#FFF8E1', borderRadius: 8, border: '1px solid #E8D5A033', marginTop: 4 }}>
                 <div style={{ fontWeight: 700, fontSize: 12, color: '#9E7E45', marginBottom: 6 }}>Bộ lọc phá vỡ cấu trúc giá (BOS Filter)</div>
-                <div style={{ fontSize: 12 }}>
-                  Vùng an toàn ±0.5% quanh tâm cản. Tín hiệu breakout chỉ kích hoạt khi giá hôm nay vượt hoàn toàn biên trên, đồng thời hôm qua nằm dưới biên dưới. Loại bỏ bull-trap và bear-trap.
+                <div style={{ fontSize: 12, lineHeight: 1.6 }}>
+                  Các tâm cụm chính là tâm của các vùng Hỗ trợ/Kháng cự mạnh trong 3 tháng. Hệ thống thiết lập vùng biên an toàn <strong>±0.5%</strong> quanh tâm cản. Tín hiệu breakout chỉ được kích hoạt khi giá hôm nay vượt hoàn toàn qua biên trên, đồng thời phiên hôm trước nằm dưới biên dưới. Loại bỏ hoàn toàn các bẫy giá (Bull-trap / Bear-trap).
                 </div>
               </div>
             </div>
           </Section>
 
-          <Section id="xgb" title="4. XGBoost — Lớp ra quyết định tối ưu (500 cây)">
+          {/* ── Section 4 ── */}
+          <Section id="xgb" title="4. Khối học máy ra quyết định tối ưu: XGBoost Classifier">
             <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-              <p style={{ marginBottom: 10 }}>42 features từ các lớp trên được tích hợp thành vector phẳng. XGBoost có 3 ưu điểm chính:</p>
+              <P>
+                Toàn bộ dữ liệu từ các nguồn được tích hợp thành một vectơ đặc trưng phẳng gồm <strong>42 tính năng</strong>. Hệ thống sử dụng XGBoost Classifier (<strong>500 cây quyết định phân cấp</strong>) nhờ các ưu điểm vượt trội:
+              </P>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {[
-                  { title: 'Xử lý dữ liệu hỗn hợp không tuần bám', body: 'Chấp nhận đồng thời xác suất (0–1), liên tục (chỉ báo), hình học (khoảng cách cản) và định danh ngành — không cần chuẩn hóa thô bạo làm mất thông tin.' },
-                  { title: 'Kiểm soát Overfitting bằng L1+L2 Regularization', body: 'L1 (α=0.1) và L2 (λ=1.0) phạt cây quá phụ thuộc vào vài chỉ báo riêng lẻ — ép model tìm sự đồng thuận từ tất cả lớp tính năng.' },
-                  { title: 'Giải thích được (Interpretable)', body: 'Feature importance và SHAP values cho biết chỉ báo nào đang thúc đẩy quyết định — không phải hộp đen.' },
+                  {
+                    title: 'Xử lý dữ liệu hỗn hợp không tuần bám',
+                    body: 'XGBoost hoạt động dựa trên các mệnh đề logic hình cây (Đúng/Sai), chấp nhận đồng thời biến xác suất (0–1), biến liên tục (chỉ báo kỹ thuật), biến hình học (khoảng cách cản) và biến định danh ngành (ticker_encoded) mà không cần chuẩn hóa thô bạo làm mất thông tin gốc.',
+                  },
+                  {
+                    title: 'Kiểm soát Overfitting bằng cấu trúc phạt toán học',
+                    body: 'Mô hình sử dụng L1 Regularization (reg_alpha = 0.1) và L2 Regularization (reg_lambda = 1.0). Cơ chế này phạt nặng các cây quá phụ thuộc vào vài chỉ báo riêng lẻ, ép mô hình phải tìm sự đồng thuận từ tất cả các lớp tính năng.',
+                  },
+                  {
+                    title: 'Giải thích được (Interpretable via SHAP)',
+                    body: 'Feature importance và SHAP values cho biết chỉ báo nào đang thúc đẩy quyết định MUA/BÁN — không phải hộp đen. Có thể xem chi tiết bằng nút SHAP ở màn hình chính.',
+                  },
                 ].map(c => (
                   <div key={c.title} style={{ padding: 12, background: '#F3EEF9', borderRadius: 8, border: '1px solid #7B5EA733' }}>
                     <div style={{ fontWeight: 700, fontSize: 12, color: '#7B5EA7', marginBottom: 4 }}>▸ {c.title}</div>
@@ -337,32 +393,41 @@ function ModelExplainModal({ onClose }) {
             </div>
           </Section>
 
-          <Section id="asymmetry" title="5. Lý do mua bán không đối xứng (Asymmetric Thresholds)">
+          {/* ── Section 5 ── */}
+          <Section id="asymmetry" title="5. Lý do mua bán không đối xứng: Asymmetric Thresholds">
             <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 14 }}>
                 {[
-                  { label: 'BUY', cond: 'fwd_ret_5 ≥ +2.0%', color: '#2E7D32', bg: '#E8F5E9', note: 'Ngưỡng cao hơn' },
-                  { label: 'SELL', cond: 'fwd_ret_5 ≤ −1.5%', color: '#C62828', bg: '#FFEBEE', note: 'Ngưỡng thấp hơn' },
-                  { label: 'HOLD', cond: 'Khoảng giữa', color: '#9E7E45', bg: '#FFF8E1', note: 'Không có tín hiệu' },
+                  { label: 'BUY',  cond: 'Return ≥ +2.0%\ntrong 5 ngày', color: '#2E7D32', bg: '#E8F5E9' },
+                  { label: 'SELL', cond: 'Return ≤ −1.5%\ntrong 5 ngày', color: '#C62828', bg: '#FFEBEE' },
+                  { label: 'HOLD', cond: 'Khoảng giữa\nkhông tín hiệu', color: '#9E7E45', bg: '#FFF8E1' },
                 ].map(c => (
                   <div key={c.label} style={{ padding: 12, borderRadius: 10, background: c.bg, textAlign: 'center' }}>
                     <div style={{ fontSize: 16, fontWeight: 800, color: c.color }}>{c.label}</div>
-                    <div style={{ fontSize: 11, fontFamily: 'monospace', color: c.color, margin: '4px 0' }}>{c.cond}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{c.note}</div>
+                    <div style={{ fontSize: 11, fontFamily: 'monospace', color: c.color, margin: '4px 0', whiteSpace: 'pre-line' }}>{c.cond}</div>
                   </div>
                 ))}
               </div>
-              <p>Sự không đối xứng phản ánh <strong>tâm lý hành vi</strong> thực tế của nhà đầu tư:</p>
+              <P>
+                Đây là một điểm cộng cực lớn về mặt <strong>Market Microstructure (Cấu trúc vi mô thị trường)</strong>. Sàn HOSE có hai đặc tính kinh điển:
+              </P>
+              <ul style={{ marginLeft: 16, lineHeight: 2, fontSize: 12, marginBottom: 12 }}>
+                <li><strong>Upward Drift:</strong> thị trường có xu hướng tăng dài hạn theo sự phát triển kinh tế.</li>
+                <li><strong>Liquidity Asymmetry:</strong> khi sập thì lệnh bán tháo khớp rất nhanh và gắt, còn khi lên thì bò từ từ.</li>
+              </ul>
+              <P>
+                Việc siết điều kiện MUA (+2%) chặt hơn BÁN (−1.5%) cho thấy mô hình được thiết kế bởi người hiểu rõ cơ chế vận hành của sàn HOSE, không phải một người làm toán lý thuyết thuần túy.
+              </P>
               <ul style={{ marginLeft: 16, lineHeight: 2, fontSize: 12 }}>
                 <li>Mất −1.5% cảm giác <em>đau</em> nhiều hơn lãi +1.5% cảm giác <em>vui</em> (Loss Aversion — Kahneman & Tversky).</li>
-                <li>Thị trường HOSE có xu hướng giảm nhanh hơn tăng — cần trigger SELL sớm hơn.</li>
-                <li>Ngưỡng BUY cao (+2%) đảm bảo chỉ vào lệnh khi có đủ biên an toàn (Margin of Safety).</li>
+                <li>Ngưỡng BUY cao (+2%) đảm bảo chỉ vào lệnh khi có đủ Margin of Safety.</li>
                 <li>Ngưỡng SELL thấp (−1.5%) ưu tiên bảo toàn vốn hơn tối đa hóa lợi nhuận.</li>
               </ul>
             </div>
           </Section>
 
-          <Section id="features" title="6. Từ điển đặc trưng — 42 tính năng trong 4 lớp">
+          {/* ── Section 6 ── */}
+          <Section id="features" title="6. Từ điển định nghĩa chi tiết các tính năng: Feature Definitions">
             {FEATURE_GROUPS.map(group => (
               <div key={group.title} style={{ marginBottom: 16 }}>
                 <div style={{
@@ -374,7 +439,7 @@ function ModelExplainModal({ onClose }) {
                 </div>
                 {group.features.map(f => (
                   <div key={f.name} style={{
-                    display: 'grid', gridTemplateColumns: '180px 1fr',
+                    display: 'grid', gridTemplateColumns: '200px 1fr',
                     gap: 10, padding: '7px 10px',
                     borderBottom: '1px solid #F0EAE0', fontSize: 12,
                   }}>
@@ -389,22 +454,21 @@ function ModelExplainModal({ onClose }) {
             ))}
           </Section>
 
-          <Section id="importance" title="7. Feature Importance — XGBoost T4">
+          {/* ── Section 7 ── */}
+          <Section id="importance" title="7. Feature Importance: XGBoost T4">
             <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>
               Biểu đồ dưới đây cho thấy mức độ đóng góp của từng nhóm đặc trưng vào quyết định của XGBoost. Các feature từ mạng Học sâu (MTL) và Hình học cản (S/R) thường đứng đầu bảng.
             </div>
             <img
               src="/notebook/feature_importance_xgb.png"
               alt="XGBoost Feature Importance"
-              style={{
-                width: '100%', borderRadius: 10,
-                border: '1px solid #EDE5D8',
-              }}
+              style={{ width: '100%', borderRadius: 10, border: '1px solid #EDE5D8' }}
               onError={e => { e.target.style.display = 'none' }}
             />
           </Section>
 
-          <Section id="usecase" title="8. Use Case — Khi nào nên và không nên dùng tín hiệu này?">
+          {/* ── Section 8 ── */}
+          <Section id="usecase" title="8. Use Case: Khi nào nên và không nên dùng tín hiệu này?">
             <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                 <div style={{ padding: 14, background: '#E8F5E9', borderRadius: 10, border: '1px solid #4A7C5F33' }}>
@@ -430,6 +494,76 @@ function ModelExplainModal({ onClose }) {
               </div>
               <div style={{ padding: 12, background: '#FFF8E1', borderRadius: 8, fontSize: 12, border: '1px solid #E8D5A0' }}>
                 <strong>Lưu ý quan trọng:</strong> Đây là công cụ hỗ trợ phân tích, không phải lời khuyên đầu tư tài chính. Luôn quản lý rủi ro với stoploss và chỉ đầu tư số tiền có thể chịu lỗ.
+              </div>
+            </div>
+          </Section>
+
+          {/* ── Section 9 ── */}
+          <Section id="mlknowledge" title="9. Kiến thức về Machine Learning, Deep Learning và Chứng khoán">
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+
+              <div style={{ fontWeight: 700, fontSize: 13, color: '#4A7C5F', marginBottom: 6 }}>1. Kiến trúc Tổng thể: Feature Cascade (Phân cấp tính năng)</div>
+              <P>
+                Hệ thống không dùng một mô hình duy nhất mà là sự phối hợp của Deep Learning và Machine Learning xếp chồng. Mô hình đi trước "sơ chế" và bóc tách dữ liệu khó cho mô hình đi sau "gút lệnh".
+              </P>
+              <div style={{ background: '#1e1e1e', borderRadius: 8, padding: '12px 14px', fontFamily: 'monospace', fontSize: 11, color: '#d4d4d4', marginBottom: 14, overflowX: 'auto', lineHeight: 1.8 }}>
+                {'[Chuỗi 20 ngày giá] ──► Mạng GRU + Attention ──► [Xác suất xu hướng (MTL Prior)]'}<br/>
+                {'                                                            │'}<br/>
+                {'                                                            ▼'}<br/>
+                {'[Chỉ báo kỹ thuật + Hỗ trợ/Kháng cự K-Means] ───►  XGBoost  ───► TÍN HIỆU'}
+              </div>
+
+              <div style={{ fontWeight: 700, fontSize: 13, color: '#4A7C5F', marginBottom: 6 }}>2. Khối Deep Learning: Người đọc vị "Dòng chảy thời gian" (GRU + Attention)</div>
+              <P>
+                Chứng khoán là dữ liệu chuỗi thời gian. Điểm yếu của RSI hay MACD thông thường là chúng chỉ nhìn vào vài phiên gần nhất và mang tính "chết" (tĩnh). Mạng GRU quét chuỗi 20 ngày với cơ chế các cổng đóng/mở tự động:
+              </P>
+              <ul style={{ marginLeft: 16, lineHeight: 2, fontSize: 12, marginBottom: 10 }}>
+                <li><strong>Cổng quên (Reset Gate):</strong> Tự động lọc bỏ biến động nhiễu (một phiên giảm sàn do tin đồn thất thiệt rồi bật lại ngay).</li>
+                <li><strong>Cổng cập nhật (Update Gate):</strong> Ghi nhớ hành vi tích lũy (dòng tiền lớn âm thầm mua gom liên tục, đẩy đáy sau cao hơn đáy trước).</li>
+              </ul>
+              <P>
+                Sau khi GRU quét xong, lớp <strong>Multi-Head Attention</strong> nhảy vào — giống Trader lão luyện nhìn lại đồ thị 1 tháng qua, tự động "bơm trọng số" vào những ngày quan trọng nhất (ngày bùng nổ thanh khoản, ngày giá chạm hỗ trợ bật lên).
+              </P>
+              <P>
+                Mô hình <strong>Multi-Task Learning</strong> ép mạng giải đồng thời 2 bài toán: vừa dự đoán quỹ đạo giá 5 ngày (Regression), vừa phân loại xu hướng (Classification). Sự ép buộc này biến Context Vector thành bộ lọc cực kỳ chất lượng, đầu ra gồm 3 biến đắt giá: mtl_p_up, mtl_p_down, và mtl_conviction.
+              </P>
+
+              <div style={{ fontWeight: 700, fontSize: 13, color: '#9E7E45', marginBottom: 6 }}>3. Khối Data Science: Số hóa tâm lý thị trường (K-Means Clustering)</div>
+              <P>
+                Nhà giao dịch chuyên nghiệp luôn quan tâm đến Cấu trúc thị trường — các vùng Hỗ trợ và Kháng cự là nơi tâm lý con người lặp lại: tiếc nuối không mua nên chờ giá về đó để mua (Hỗ trợ), sợ mất lãi nên cứ lên tới đó là bán (Kháng cự).
+              </P>
+              <P>
+                Hệ thống tự động hóa tư duy này bằng K-Means Clustering trên 63 phiên gần nhất: tìm K tối ưu bằng Elbow Method, tính khoảng cách hình học (sr_distance_pct), và cài đặt bộ lọc BOS ±0.5% để chỉ ghi nhận Phá vỡ cấu trúc (BOS) thật sự — loại bỏ hoàn toàn bẫy tăng giá (Bull-trap).
+              </P>
+
+              <div style={{ fontWeight: 700, fontSize: 13, color: '#7B5EA7', marginBottom: 6 }}>4. Khối Học Máy: Hội đồng ra quyết định tối ưu (XGBoost)</div>
+              <P>
+                42 tính năng hỗn hợp từ các lớp trên được nạp vào XGBoost — lựa chọn số 1 của các nhà làm Quant, vượt trội hơn mạng nơ-ron thông thường:
+              </P>
+              <ul style={{ marginLeft: 16, lineHeight: 2, fontSize: 12, marginBottom: 10 }}>
+                <li>Mạng nơ-ron rất ghét việc nạp vào vừa biến xác suất (0–1) vừa biến phần trăm vừa biến phân loại. XGBoost dùng logic cây (Đúng/Sai) nên chấp nhận mọi định dạng mà không làm biến dạng thông tin.</li>
+                <li>Dựng 500 cây liên tiếp, cây sau sửa sai cho cây trước. Phạt L1/L2 ép các cây không được chỉ tin vào một chỉ báo duy nhất.</li>
+                <li>Early Stopping: nếu sau 30 cây liên tiếp mà độ chính xác không tăng, mô hình tự động dừng train, giữ trạng thái tổng quát nhất.</li>
+              </ul>
+
+              <div style={{ fontWeight: 700, fontSize: 13, color: '#C62828', marginBottom: 6 }}>5. Case Study: Luồng logic khi phân tích một cổ phiếu</div>
+              <P>
+                Khi phân tích một cổ phiếu như VNM, luồng logic diễn ra như sau:
+              </P>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {[
+                  { step: 'Lớp Deep Learning (Prior Belief)', body: 'GRU + Attention quét 20 phiên qua, nhìn thấy áp lực bán ngắn hạn và xuất ra xác suất giảm điểm chiếm ưu thế.', color: '#4A7C5F', bg: '#E8F5E9' },
+                  { step: 'Lớp Kỹ thuật & Cấu trúc (Confirmation)', body: 'Dữ liệu được ném vào XGBoost kết hợp với việc kiểm tra vị trí giá: nằm dưới EMA-50 (xu hướng giảm) và dội ngược từ vùng kháng cự K-Means phía trên.', color: '#9E7E45', bg: '#FFF8E1' },
+                  { step: 'Sự đồng thuận tối ưu (XGBoost Decision)', body: 'Hội đồng 500 cây tổng hợp: Prior Deep Learning báo GIẢM + Kỹ thuật báo CẢN CỨNG → P(BÁN) đạt ≥55% → kích hoạt lệnh BÁN.', color: '#C62828', bg: '#FFEBEE' },
+                ].map(c => (
+                  <div key={c.step} style={{ padding: 12, background: c.bg, borderRadius: 8, border: `1px solid ${c.color}33` }}>
+                    <div style={{ fontWeight: 700, fontSize: 12, color: c.color, marginBottom: 4 }}>{c.step}</div>
+                    <div style={{ fontSize: 12 }}>{c.body}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ padding: 12, background: '#F9F6F1', borderRadius: 8, fontSize: 12, marginTop: 12, border: '1px solid #EDE5D8', lineHeight: 1.6 }}>
+                <strong>Tóm lại:</strong> Deep Learning đóng vai trò dự báo thời tiết (xu hướng lớn), còn Machine Learning và toán hình học đóng vai trò chọn thời điểm xuống đường (vùng giá kích hoạt lệnh).
               </div>
             </div>
           </Section>
@@ -487,7 +621,7 @@ export default function PredictPrice() {
       {showModal && <ModelExplainModal onClose={() => setShowModal(false)} />}
 
       <div className="predict-layout">
-        {/* ── Left: config ── */}
+        {/* Left: config */}
         <div className="predict-config">
           <div className="card">
             <div className="card-title">Cấu hình dự đoán</div>
@@ -502,7 +636,7 @@ export default function PredictPrice() {
               >
                 <option value="">Chọn cổ phiếu</option>
                 {Object.entries(TICKER_NAMES).map(([k, v]) => (
-                  <option key={k} value={k}>{k} — {v}</option>
+                  <option key={k} value={k}>{k}: {v}</option>
                 ))}
               </select>
             </div>
@@ -626,7 +760,7 @@ export default function PredictPrice() {
 
                 <div className="price-label">Cổ phiếu</div>
                 <div className="price-ticker-name">
-                  {result.ticker}{TICKER_NAMES[result.ticker] ? ` — ${TICKER_NAMES[result.ticker]}` : ''}
+                  {result.ticker}{TICKER_NAMES[result.ticker] ? `: ${TICKER_NAMES[result.ticker]}` : ''}
                 </div>
                 <div className="price-label">Giá hiện tại</div>
                 <div className="price-current">{fmtVND(result.current_price)}</div>
@@ -641,7 +775,7 @@ export default function PredictPrice() {
           </div>
         </div>
 
-        {/* ── Right: charts ── */}
+        {/* Right: charts */}
         <div>
           {loading && (
             <div className="card">
