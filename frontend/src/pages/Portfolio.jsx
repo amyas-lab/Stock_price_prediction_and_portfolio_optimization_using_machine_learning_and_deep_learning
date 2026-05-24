@@ -6,12 +6,12 @@ import {
 import {
   fetchPortfolio, fetchProfitabilityScores, fetchRiskScores, computePortfolio,
 } from '../api/stockApi.js'
-import { TargetIcon, TrendUpIcon, ShieldIcon, PieIcon } from '../components/Icons.jsx'
+import { TrendUpIcon, ShieldIcon, PieIcon } from '../components/Icons.jsx'
 
 // ── constants ─────────────────────────────────────────────────
-const PROFILE_MAP  = { 0: 'prudent', 1: 'equal_weight', 2: 'risk_taking' }
-const RISK_LABELS  = ['Thận trọng', 'Cân bằng', 'Tích cực']
-const RF_ANNUAL    = 0.045
+const PROFILE_MAP = { 0: 'prudent', 1: 'equal_weight', 2: 'risk_taking' }
+const RISK_LABELS = ['Thận trọng', 'Cân bằng', 'Tích cực']
+const RF_ANNUAL   = 0.045
 
 const PIE_COLORS = [
   '#C4A265','#5C7A45','#8B7355','#D4C090','#2D5A3D','#C8BA9A',
@@ -28,102 +28,243 @@ const TICKER_NAMES = {
   CMG:'CMC', ELC:'Elcom', SGT:'Saigon Tel',
 }
 
-// ── profile copy ───────────────────────────────────────────────
-const PROFILE_COPY = {
-  equal_weight: {
-    title: 'Phân Bổ Đều (Equal-Weight)',
-    badge: '★ Hiệu quả nhất',
-    badgeColor: '#2E7D32',
-    summary: 'Phân bổ 10% đều cho mỗi cổ phiếu trong Top 10 được mô hình chọn lọc.',
-    mechanism: 'Không có tối ưu hóa phức tạp — mỗi cổ phiếu nhận đúng 10% danh mục. Cách tiếp cận đơn giản này hiệu quả vì nghiên cứu của DeMiguel và cộng sự (2009) đã chứng minh trên 14 bộ dữ liệu thực tế rằng phân bổ đều thường thắng các phương pháp tối ưu hóa phức tạp hơn, do các phương pháp đó dễ bị ảnh hưởng bởi sai số trong ước lượng ma trận hiệp phương sai. Kết quả kiểm thử 2025–2026: lợi nhuận 65.90%, Sharpe 1.62.',
+// ── KPI card config ───────────────────────────────────────────
+const KPI_CARDS = [
+  {
+    id: 'return',
+    bg: '#EDFAF2', border: '#A8D5B8', valColor: '#2E7D32',
+    label: 'Lợi nhuận / năm',
+    icon: <TrendUpIcon size={13} color="#2E7D32" />,
+    explainTitle: 'Lợi nhuận thực nghiệm (Backtest Return)',
+    explain: 'Lợi nhuận đã được kiểm nghiệm thực tế trên dữ liệu ngoài mẫu (24/01/2025 – 20/04/2026). "Thực nghiệm" có nghĩa là mô hình không nhìn thấy dữ liệu này trong quá trình học — kết quả phản ánh hiệu suất thực khi triển khai, không phải ước tính lý thuyết. Quy về năm từ lợi nhuận tích lũy và số ngày kiểm thử.',
   },
-  risk_taking: {
-    title: 'Tích Cực — Markowitz Tối Đa Sharpe',
-    badge: 'Rủi ro cao',
-    badgeColor: '#C0392B',
-    summary: 'Tối ưu hóa tỷ lệ lợi nhuận / rủi ro bằng thuật toán Markowitz.',
-    mechanism: 'Sử dụng bài toán tối ưu hóa Markowitz (thuật toán SLSQP): tìm tỷ trọng danh mục sao cho Sharpe Ratio đạt lớn nhất, với ràng buộc không được bán khống (tỷ trọng ≥ 0). Mô hình học từ dữ liệu 2020–2024 để ước lượng lợi nhuận kỳ vọng và ma trận hiệp phương sai — nhưng sai số ước lượng thường tích lũy và làm giảm hiệu quả trên dữ liệu mới. Kết quả kiểm thử 2025–2026: lợi nhuận 35.73%, Sharpe 0.86.',
+  {
+    id: 'vol',
+    bg: '#FFF8E8', border: '#E8C97A', valColor: '#9E7E45',
+    label: 'Biến động / năm',
+    icon: <ShieldIcon size={13} color="#9E7E45" />,
+    explainTitle: 'Biến động danh mục (Volatility / Standard Deviation)',
+    explain: 'Độ lệch chuẩn (Standard Deviation) của lợi nhuận hằng ngày, nhân √252 để quy về năm. Đây là thước đo rủi ro phổ biến nhất — danh mục có biến động 25% có nghĩa là trong điều kiện bình thường, lợi nhuận hằng năm có thể dao động ±25% so với mức trung bình.',
   },
-  prudent: {
-    title: 'Thận Trọng — Markowitz Tối Thiểu Rủi Ro',
-    badge: 'Rủi ro thấp',
-    badgeColor: '#1565C0',
-    summary: 'Tối ưu hóa giảm thiểu biến động danh mục bằng thuật toán Markowitz.',
-    mechanism: 'Cũng dùng bài toán Markowitz SLSQP, nhưng mục tiêu là tìm tỷ trọng sao cho độ lệch chuẩn danh mục nhỏ nhất trong khi vẫn đảm bảo lợi nhuận kỳ vọng tối thiểu. Danh mục thiên về cổ phiếu phòng thủ, ít biến động. Phù hợp nhà đầu tư ưu tiên bảo toàn vốn hơn tăng trưởng. Kết quả kiểm thử 2025–2026: lợi nhuận 16.44%, Sharpe 0.46.',
+  {
+    id: 'sharpe',
+    bg: '#EFF4FF', border: '#A8C0F0', valColor: '#3A5FA0',
+    label: 'Sharpe Ratio',
+    explainTitle: 'Sharpe Ratio — hiệu quả điều chỉnh rủi ro',
+    explain: 'Sharpe = (Lợi nhuận năm − Risk-Free Rate) / Biến động năm. Risk-Free Rate = 4.5%/năm (lãi suất phi rủi ro, tương đương trái phiếu Chính phủ VN). Sharpe > 1.0 là tốt, > 1.5 là xuất sắc. Ý nghĩa: mỗi đơn vị rủi ro chấp nhận mang lại bao nhiêu đơn vị lợi nhuận vượt trội so với gửi ngân hàng.',
   },
-}
+]
 
-// ── backtest rows + tooltips ───────────────────────────────────
+// ── backtest rows ─────────────────────────────────────────────
 const BACKTEST_META = [
   {
     label: 'Tổng lợi nhuận (Cumulative Return)',
     ew: '65.90%', rt: '35.73%', pr: '16.44%', vni: '40.74%',
-    tip: 'Lợi nhuận tích lũy toàn bộ giai đoạn kiểm thử (24/01/2025 – 20/04/2026). Tính bằng phương pháp nhân vốn từng ngày: ∏(1 + r_t) − 1. Đây là con số đã được kiểm chứng thực tế trên dữ liệu ngoài mẫu, không phải ước tính lý thuyết.',
+    tip: 'Lợi nhuận tích lũy toàn bộ giai đoạn kiểm thử. Tính bằng phương pháp nhân vốn từng ngày: ∏(1 + r_t) − 1. Đây là con số đã được kiểm chứng thực tế trên dữ liệu ngoài mẫu, không phải ước tính lý thuyết.',
   },
   {
     label: 'Lợi nhuận / năm (Annualized Return)',
     ew: '45.49%', rt: '29.88%', pr: '15.79%', vni: '31.03%',
-    tip: 'Lợi nhuận quy về tốc độ 1 năm, tính từ lợi nhuận tích lũy và số ngày kiểm thử. Cho phép so sánh công bằng giữa các chiến lược có thời gian kiểm thử khác nhau.',
+    tip: 'Lợi nhuận quy về tốc độ 1 năm từ lợi nhuận tích lũy và số ngày kiểm thử. Cho phép so sánh công bằng giữa các chiến lược.',
   },
   {
     label: 'Biến động / năm (Volatility)',
     ew: '25.30%', rt: '29.52%', pr: '24.80%', vni: '22.69%',
-    tip: 'Độ lệch chuẩn (Standard Deviation) của lợi nhuận hằng ngày, nhân √252 để quy về năm. Đo mức độ dao động giá trị danh mục — con số càng thấp thì rủi ro biến động càng ít.',
+    tip: 'Độ lệch chuẩn (Standard Deviation) của lợi nhuận hằng ngày, nhân √252 để quy về năm. Con số càng thấp thì rủi ro biến động càng ít.',
   },
   {
     label: 'Sharpe Ratio',
     ew: '1.6201', rt: '0.8596', pr: '0.4550', vni: '1.1694',
-    tip: 'Sharpe = (Lợi nhuận năm − Risk-Free Rate) / Biến động năm. Risk-Free Rate = 4.5%/năm (tương đương lãi suất trái phiếu Chính phủ VN). Sharpe > 1.0 là tốt, > 1.5 là xuất sắc — thể hiện lợi nhuận thu được trên mỗi đơn vị rủi ro chấp nhận.',
+    tip: 'Sharpe = (Lợi nhuận năm − 4.5%) / Biến động năm. Risk-Free Rate = 4.5%/năm. Sharpe > 1.0 là tốt, > 1.5 là xuất sắc.',
   },
   {
     label: 'Max Drawdown',
     ew: '-19.87%', rt: '-23.20%', pr: '-21.97%', vni: 'N/A *',
-    tip: 'Mức sụt giảm lớn nhất từ đỉnh xuống đáy trong toàn bộ giai đoạn kiểm thử. Ví dụ: -19.87% có nghĩa là tại thời điểm tệ nhất, danh mục mất gần 20% so với mức đỉnh trước đó. (*) VN-Index không có chỉ số này vì đây là chuẩn tham chiếu thụ động — không có tín hiệu giao dịch.',
+    tip: 'Mức sụt giảm lớn nhất từ đỉnh xuống đáy trong toàn bộ giai đoạn. (*) VN-Index là chuẩn tham chiếu thụ động — không có tín hiệu giao dịch nên không tính Max Drawdown.',
   },
   {
     label: 'Win Rate',
     ew: '59.27%', rt: '55.63%', pr: '53.97%', vni: 'N/A *',
-    tip: 'Tỷ lệ số phiên giao dịch có lợi nhuận dương so với tổng số phiên. Tính trên tất cả các lệnh mua được mô hình tín hiệu phát ra. (*) VN-Index là chuẩn tham chiếu thụ động, không có tín hiệu giao dịch nên không tính Win Rate.',
+    tip: 'Tỷ lệ số phiên giao dịch có lợi nhuận dương. (*) VN-Index là chuẩn tham chiếu thụ động — không có tín hiệu giao dịch nên không tính Win Rate.',
   },
 ]
+
+// ── profile modal content ─────────────────────────────────────
+const PROFILE_DETAIL = {
+  prudent: {
+    title: 'Thận Trọng — Markowitz Tối Thiểu Rủi Ro',
+    subtitle: 'Mục tiêu: Giảm thiểu biến động danh mục trong khi vẫn đảm bảo lợi nhuận tối thiểu',
+    badge: 'Rủi ro thấp', badgeColor: '#1565C0',
+    sections: [
+      { title: 'Bài toán tối ưu hóa', body: 'Sử dụng thuật toán SLSQP (Sequential Least Squares Programming) từ thư viện scipy.optimize để giải bài toán tối thiểu hóa: tìm tỷ trọng w sao cho phương sai danh mục w^T Σ w nhỏ nhất, với ràng buộc: (1) tổng tỷ trọng = 1, (2) không được bán khống (w_i ≥ 0), (3) lợi nhuận kỳ vọng w^T μ đạt ít nhất một ngưỡng tối thiểu.' },
+      { title: 'Dữ liệu đầu vào', body: 'Ma trận hiệp phương sai Σ và vector lợi nhuận kỳ vọng μ được ước lượng từ lợi nhuận hằng ngày giai đoạn 2020–2024, sau đó nhân 252 để quy về năm trước khi đưa vào SLSQP (pre-annualization — đảm bảo gradient tốt hơn).' },
+      { title: 'Đặc điểm danh mục', body: 'Danh mục thiên về các cổ phiếu phòng thủ có biến động lịch sử thấp (ngân hàng lớn, tiêu dùng thiết yếu). Phân bổ không đều — cổ phiếu ổn định nhận tỷ trọng cao hơn.' },
+      { title: 'Kết quả kiểm thử 2025–2026', body: 'Lợi nhuận thực nghiệm: 16.44% · Biến động: 24.80%/năm · Sharpe: 0.455 · Max Drawdown: -21.97% · Win Rate: 53.97%' },
+    ],
+  },
+  equal_weight: {
+    title: 'Cân Bằng — Phân Bổ Đều (Equal-Weight)',
+    subtitle: 'Mục tiêu: Loại bỏ sai số ước lượng bằng cách phân bổ đều cho tất cả cổ phiếu được chọn',
+    badge: 'Hiệu quả nhất', badgeColor: '#2E7D32',
+    sections: [
+      { title: 'Cơ chế đơn giản nhưng mạnh mẽ', body: 'Không có bài toán tối ưu hóa — mỗi cổ phiếu trong Top 10 do mô hình XGBoost T4 chọn lọc nhận đúng 10% danh mục. Không ưu tiên cổ phiếu nào hơn cổ phiếu nào dựa trên dữ liệu lịch sử.' },
+      { title: 'Tại sao thắng Markowitz?', body: 'DeMiguel, Garlappi & Uppal (2009) kiểm chứng trên 14 bộ dữ liệu thực tế: phân bổ đều 1/N thường thắng MVO out-of-sample vì tránh được sai số tích lũy trong ước lượng ma trận hiệp phương sai Σ. Lỗi ước lượng Σ thường lớn hơn lợi ích của việc tối ưu hóa.' },
+      { title: 'Vai trò của mô hình chọn cổ phiếu', body: 'Lợi thế thực sự đến từ bước chọn lọc: mô hình XGBoost T4 (Cascade: GRU → K-Means → XGBoost) xác định Top 10 cổ phiếu có tín hiệu tích cực nhất. Equal-Weight chỉ áp dụng sau khi đã có danh sách chất lượng cao.' },
+      { title: 'Kết quả kiểm thử 2025–2026', body: 'Lợi nhuận thực nghiệm: 65.90% · Biến động: 25.30%/năm · Sharpe: 1.6201 · Max Drawdown: -19.87% · Win Rate: 59.27%' },
+    ],
+  },
+  risk_taking: {
+    title: 'Tích Cực — Markowitz Tối Đa Sharpe',
+    subtitle: 'Mục tiêu: Tối đa hóa tỷ lệ lợi nhuận / rủi ro (Sharpe Ratio)',
+    badge: 'Rủi ro cao', badgeColor: '#C0392B',
+    sections: [
+      { title: 'Bài toán tối ưu hóa', body: 'Sử dụng SLSQP để tối đa hóa Sharpe Ratio: tìm tỷ trọng w sao cho (w^T μ − RF) / √(w^T Σ w) lớn nhất, với ràng buộc: (1) tổng tỷ trọng = 1, (2) không được bán khống (w_i ≥ 0).' },
+      { title: 'Dữ liệu đầu vào', body: 'Giống chiến lược Thận Trọng: Σ và μ ước lượng từ dữ liệu 2020–2024 và pre-annualize trước khi đưa vào SLSQP. Risk-Free Rate RF = 4.5%/năm.' },
+      { title: 'Đặc điểm danh mục', body: 'Phân bổ tập trung vào các cổ phiếu có Sharpe cao trong giai đoạn huấn luyện. Dễ bị ảnh hưởng bởi outlier trong dữ liệu lịch sử — ví dụ: VIC có biến động cao trong 2020–2024 nên chỉ nhận 2% dù tăng +678% trong giai đoạn kiểm thử.' },
+      { title: 'Kết quả kiểm thử 2025–2026', body: 'Lợi nhuận thực nghiệm: 35.73% · Biến động: 29.52%/năm · Sharpe: 0.8596 · Max Drawdown: -23.20% · Win Rate: 55.63%' },
+    ],
+  },
+}
+
+const SCORE_MODALS = {
+  profit: {
+    title: 'Điểm lợi nhuận (Profitability Score)',
+    subtitle: 'Thang điểm 0–100 — thứ hạng phần trăm tổng hợp 5 yếu tố',
+    sections: [
+      { title: 'F1 — Tín hiệu mô hình MTL (Multi-Task Learning)', body: 'Xác suất tăng giá p_up từ mô hình deep learning GRU Encoder-Decoder, được huấn luyện đồng thời dự báo lợi nhuận 5 ngày và phân loại xu hướng.' },
+      { title: 'F2 — Chỉ số kỹ thuật tổng hợp', body: 'Kết hợp RSI, MACD histogram, khoảng cách vùng hỗ trợ/kháng cự K-Means, và tín hiệu EMA crossover. Đánh giá động lực giá ngắn và trung hạn.' },
+      { title: 'F3 — Tín hiệu XGBoost', body: 'Xác suất BUY từ mô hình XGBoost T4 huấn luyện trên 25 đặc trưng kỹ thuật kết hợp. Là lớp ra quyết định cuối cùng của Cascade Model.' },
+      { title: 'F4 — Sharpe lịch sử', body: 'Sharpe Ratio của cổ phiếu trong giai đoạn huấn luyện (2020–2024), điều chỉnh theo Risk-Free Rate 4.5%/năm. Phản ánh lịch sử lợi nhuận / rủi ro.' },
+      { title: 'F5 — Xu hướng giá (Trend Score)', body: 'Đánh giá xu hướng dựa trên chuỗi EMA 10/20/50 phiên. MA alignment = +1 nếu EMA10 > EMA20 > EMA50 (xu hướng tăng toàn diện), −1 nếu ngược lại.' },
+    ],
+  },
+  risk: {
+    title: 'Điểm rủi ro (Risk Score)',
+    subtitle: 'Thang điểm 0–10 — điểm tổng hợp 5 yếu tố rủi ro (cao = rủi ro lớn)',
+    sections: [
+      { title: 'R1 — Biến động giá (Volatility Risk)', body: 'Độ lệch chuẩn lợi nhuận hằng ngày trong 60 phiên gần nhất, quy về năm. Biến động cao = rủi ro dao động giá lớn.' },
+      { title: 'R2 — Áp lực bán (Sell Pressure Risk)', body: 'Xác suất SELL từ mô hình XGBoost T4 kết hợp với chiều MACD histogram. Đánh giá nguy cơ bán tháo ngắn hạn.' },
+      { title: 'R3 — Mức sụt giảm lịch sử (Drawdown Risk)', body: 'Max Drawdown trong 252 phiên gần nhất (1 năm giao dịch). Phản ánh mức thua lỗ tệ nhất mà cổ phiếu đã trải qua.' },
+      { title: 'R4 — Tương quan danh mục (Correlation Risk)', body: 'Hệ số tương quan trung bình với các cổ phiếu còn lại trong danh mục. Tương quan cao = ít tác dụng phân tán rủi ro.' },
+      { title: 'R5 — Nguy cơ đảo chiều (Reversal Risk)', body: 'Kết hợp RSI (overbought/oversold) và khoảng cách đến vùng kháng cự K-Means. RSI > 70 gần kháng cự = rủi ro đảo chiều giảm cao.' },
+    ],
+  },
+}
 
 // ── helpers ───────────────────────────────────────────────────
 function fmtPct(v, digits = 2) {
   return v === null || v === undefined ? '—' : (v * 100).toFixed(digits) + '%'
 }
 
-// ── sub-components ────────────────────────────────────────────
-function StatCard({ icon, label, value, note, explainTitle, explain, valueColor }) {
-  const [open, setOpen] = useState(false)
+// ── Modal ─────────────────────────────────────────────────────
+function InfoModal({ title, subtitle, sections, onClose }) {
+  const [open, setOpen] = useState(null)
+  const toggle = id => setOpen(prev => prev === id ? null : id)
   return (
     <div
-      className="stat-card"
-      onClick={() => explain && setOpen(o => !o)}
-      onMouseEnter={e => explain && (e.currentTarget.style.transform = 'translateY(-2px)')}
-      onMouseLeave={e => (e.currentTarget.style.transform = '')}
-      style={{ cursor: explain ? 'pointer' : 'default', transition: 'transform 0.15s, box-shadow 0.15s' }}
-      title={explain ? 'Nhấn để xem giải thích' : undefined}
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
+        zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+      }}
+      onClick={e => e.target === e.currentTarget && onClose()}
     >
-      <div className="stat-card-label" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-        {icon}{label}
-        {explain && <span style={{ fontSize: 10, color: 'var(--text-muted)', marginLeft: 2, fontStyle: 'italic' }}>— nhấn để xem</span>}
-      </div>
-      <div className="stat-card-value" style={valueColor ? { color: valueColor } : {}}>{value}</div>
-      <div className="stat-card-note">{note}</div>
-      {open && explain && (
+      <div style={{
+        background: '#FAF7F2', borderRadius: 16, width: '100%', maxWidth: 680,
+        maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+      }}>
         <div style={{
-          marginTop: 8, padding: '8px 10px', background: '#F5EFE6', borderRadius: 6,
-          fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.65,
-          borderTop: '1px solid #E0D5C0', textAlign: 'left',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+          padding: '20px 24px 16px', borderBottom: '1px solid #EDE5D8',
+          position: 'sticky', top: 0, background: '#FAF7F2', zIndex: 1,
         }}>
-          {explainTitle && <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>{explainTitle}</div>}
-          {explain}
+          <div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}>{title}</div>
+            {subtitle && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>{subtitle}</div>}
+          </div>
+          <button onClick={onClose} style={{
+            background: 'none', border: '1px solid #EDE5D8', borderRadius: 8,
+            width: 32, height: 32, cursor: 'pointer', fontSize: 16, color: 'var(--text-muted)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>×</button>
+        </div>
+        <div style={{ padding: '16px 24px 24px' }}>
+          {sections.map((s, i) => (
+            <div key={i} style={{ marginBottom: 8 }}>
+              <button
+                onClick={() => toggle(i)}
+                style={{
+                  width: '100%', textAlign: 'left', padding: '11px 16px',
+                  background: open === i ? '#FAF3E0' : '#F9F6F1',
+                  border: '1px solid #EDE5D8', borderRadius: open === i ? '10px 10px 0 0' : 10,
+                  fontSize: 13, fontWeight: 600, color: 'var(--text-primary)',
+                  cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                }}
+              >
+                <span>{s.title}</span>
+                <span style={{ fontSize: 18, color: 'var(--text-muted)', lineHeight: 1 }}>{open === i ? '−' : '+'}</span>
+              </button>
+              {open === i && (
+                <div style={{
+                  padding: 16, border: '1px solid #EDE5D8', borderTop: 'none',
+                  borderRadius: '0 0 10px 10px', background: '#fff',
+                  fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7,
+                }}>
+                  {s.body}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── KPI grid with click-to-explain banner ─────────────────────
+function KpiGrid({ cards }) {
+  const [active, setActive] = useState(null)
+  const card = active !== null ? cards[active] : null
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: card ? 0 : 0 }}>
+        {cards.map((c, i) => (
+          <div
+            key={c.id}
+            onClick={() => setActive(active === i ? null : i)}
+            style={{
+              background: c.bg, borderRadius: 12, padding: '14px 16px',
+              border: `2px solid ${active === i ? c.border : 'transparent'}`,
+              cursor: 'pointer', transition: 'border-color 0.15s, transform 0.15s',
+              transform: active === i ? 'translateY(-2px)' : '',
+              boxShadow: active === i ? `0 4px 14px ${c.border}55` : 'none',
+            }}
+          >
+            <div style={{ fontSize: 12, color: '#888', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+              {c.icon}{c.label}
+            </div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: c.valColor, marginBottom: 4, lineHeight: 1.1 }}>
+              {c.value}
+            </div>
+            <div style={{ fontSize: 11, color: '#999', marginBottom: 2 }}>{c.sub}</div>
+            <div style={{ fontSize: 10, color: '#BBB', marginTop: 6 }}>nhấp để xem giải thích</div>
+          </div>
+        ))}
+      </div>
+      {card && (
+        <div style={{
+          background: '#F5EFE6', border: `1px solid ${card.border}`,
+          borderTop: 'none', borderRadius: '0 0 12px 12px',
+          padding: '12px 16px', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.65,
+        }}>
+          <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{card.explainTitle}: </span>
+          {card.explain}
         </div>
       )}
     </div>
   )
 }
 
+// ── MetricRow (backtest table) ────────────────────────────────
 function MetricRow({ row, i }) {
   const [open, setOpen] = useState(false)
   return (
@@ -131,7 +272,6 @@ function MetricRow({ row, i }) {
       <tr
         style={{ background: i % 2 === 0 ? '#FDFAF6' : '#FAF7F2', cursor: 'pointer' }}
         onClick={() => setOpen(o => !o)}
-        title="Nhấn để xem giải thích"
       >
         <td style={{ padding: '7px 12px', fontSize: 13 }}>
           <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{row.label}</span>
@@ -150,68 +290,6 @@ function MetricRow({ row, i }) {
         </tr>
       )}
     </>
-  )
-}
-
-function ProfileCard({ info, active }) {
-  const [showMech, setShowMech] = useState(false)
-  return (
-    <div style={{
-      background: active ? '#F0EBE0' : '#F5EFE6', borderRadius: 8, padding: '10px 12px', marginBottom: 12,
-      borderLeft: `3px solid ${info.badgeColor}`,
-      transition: 'background 0.2s',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'nowrap' }}>
-        <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>{info.title}</span>
-        <span style={{
-          fontSize: 11, fontWeight: 600, color: '#fff', whiteSpace: 'nowrap',
-          background: info.badgeColor, borderRadius: 4, padding: '1px 6px', flexShrink: 0,
-        }}>{info.badge}</span>
-      </div>
-      <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 6px', lineHeight: 1.5 }}>
-        {info.summary}
-      </p>
-      <button
-        onClick={() => setShowMech(o => !o)}
-        style={{
-          background: 'none', border: `1px solid ${info.badgeColor}`, borderRadius: 4,
-          color: info.badgeColor, fontSize: 11, padding: '2px 8px', cursor: 'pointer',
-          fontWeight: 600,
-        }}
-      >
-        {showMech ? '▲ Ẩn cơ chế' : '▼ Xem cơ chế hoạt động'}
-      </button>
-      {showMech && (
-        <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '8px 0 0', lineHeight: 1.65 }}>
-          {info.mechanism}
-        </p>
-      )}
-    </div>
-  )
-}
-
-function AccSection({ id, title, open, onToggle, children }) {
-  return (
-    <div style={{ border: '1px solid #E8DFD0', borderRadius: 8, marginBottom: 8, overflow: 'hidden' }}>
-      <button
-        onClick={() => onToggle(id)}
-        style={{
-          width: '100%', textAlign: 'left', padding: '10px 14px',
-          background: open ? '#F5EFE6' : '#FAF7F2',
-          border: 'none', cursor: 'pointer',
-          fontSize: 13, fontWeight: 600, color: 'var(--text-primary)',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        }}
-      >
-        <span>{title}</span>
-        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{open ? '▲' : '▼'}</span>
-      </button>
-      {open && (
-        <div style={{ padding: '12px 14px', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-          {children}
-        </div>
-      )}
-    </div>
   )
 }
 
@@ -238,6 +316,30 @@ const BarCustomTooltip = ({ active, payload, label }) => {
   )
 }
 
+function AccSection({ id, title, open, onToggle, children }) {
+  return (
+    <div style={{ border: '1px solid #E8DFD0', borderRadius: 8, marginBottom: 8, overflow: 'hidden' }}>
+      <button
+        onClick={() => onToggle(id)}
+        style={{
+          width: '100%', textAlign: 'left', padding: '10px 14px',
+          background: open ? '#F5EFE6' : '#FAF7F2', border: 'none', cursor: 'pointer',
+          fontSize: 13, fontWeight: 600, color: 'var(--text-primary)',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        }}
+      >
+        <span>{title}</span>
+        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div style={{ padding: '12px 14px', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+          {children}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── main component ────────────────────────────────────────────
 export default function Portfolio() {
   const [riskIdx,      setRiskIdx]      = useState(1)
@@ -253,8 +355,10 @@ export default function Portfolio() {
   const [scenario,     setScenario]     = useState(null)
   const [scenarioLoad, setScenarioLoad] = useState(false)
   const [accOpen,      setAccOpen]      = useState({})
-  const toggleAcc = id => setAccOpen(prev => ({ ...prev, [id]: !prev[id] }))
+  const [stratModal,   setStratModal]   = useState(null)  // 'prudent' | 'equal_weight' | 'risk_taking'
+  const [scoreModal,   setScoreModal]   = useState(null)  // 'profit' | 'risk'
 
+  const toggleAcc = id => setAccOpen(prev => ({ ...prev, [id]: !prev[id] }))
   const profile = PROFILE_MAP[riskIdx]
 
   async function loadPortfolio() {
@@ -269,13 +373,10 @@ export default function Portfolio() {
       setLastFetched(new Date())
       const initW = {}
       port.stocks.forEach(s => { initW[s.ticker] = +(s.weight * 100).toFixed(1) })
-      setEditWeights(initW)
-      setScenario(null); setWeightError(null)
+      setEditWeights(initW); setScenario(null); setWeightError(null)
     } catch (err) {
       setError(err.response?.data?.detail || err.message)
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
   useEffect(() => { loadPortfolio() }, [riskIdx])
@@ -291,6 +392,17 @@ export default function Portfolio() {
   const dispRet    = scenario ? scenario.expected_return : adjRet
   const dispVol    = scenario ? scenario.expected_vol    : adjVol
   const dispSharpe = scenario ? scenario.sharpe_ratio    : adjSharpe
+
+  const retNote = cashPct > 0
+    ? `Điều chỉnh ${cashPct}% tiền mặt`
+    : scenario ? 'Kịch bản tùy chỉnh'
+    : 'Lợi nhuận thực nghiệm kiểm thử'
+
+  const kpiCards = [
+    { ...KPI_CARDS[0], value: data ? fmtPct(dispRet) : '—', sub: retNote },
+    { ...KPI_CARDS[1], value: data ? fmtPct(dispVol) : '—', sub: 'Độ lệch chuẩn (Standard Deviation)' },
+    { ...KPI_CARDS[2], value: data ? dispSharpe.toFixed(4) : '—', sub: 'Risk-Free Rate = 4.5%/năm' },
+  ]
 
   const pieData = data?.stocks?.map(s => ({ name: s.ticker, value: s.weight })) ?? []
   const barData = data?.stocks?.map(s => {
@@ -317,77 +429,104 @@ export default function Portfolio() {
       if (isNaN(v) || v < 0) { setWeightError(`Tỷ trọng không hợp lệ: ${t}`); return }
       weights[t] = v / 100; total += v
     }
-    if (Math.abs(total - 100) > 1) {
-      setWeightError(`Tổng tỷ trọng = ${total.toFixed(1)}% (cần = 100%)`); return
-    }
+    if (Math.abs(total - 100) > 1) { setWeightError(`Tổng tỷ trọng = ${total.toFixed(1)}% (cần = 100%)`); return }
     setScenarioLoad(true); setWeightError(null)
-    try {
-      setScenario(await computePortfolio(tickers, weights))
-    } catch (err) {
-      setWeightError(err.response?.data?.detail || err.message)
-    } finally {
-      setScenarioLoad(false)
-    }
+    try { setScenario(await computePortfolio(tickers, weights)) }
+    catch (err) { setWeightError(err.response?.data?.detail || err.message) }
+    finally { setScenarioLoad(false) }
   }
 
-  const retNote = cashPct > 0
-    ? `Đã điều chỉnh ${cashPct}% tiền mặt`
-    : scenario ? 'Kịch bản tùy chỉnh'
-    : 'Lợi nhuận thực nghiệm kiểm thử'
+  const stratDetail = stratModal ? PROFILE_DETAIL[stratModal] : null
+  const scoreDetail = scoreModal ? SCORE_MODALS[scoreModal]   : null
 
   return (
     <div>
+      {/* ── Modals ── */}
+      {stratDetail && (
+        <InfoModal
+          title={stratDetail.title}
+          subtitle={stratDetail.subtitle}
+          sections={stratDetail.sections}
+          onClose={() => setStratModal(null)}
+        />
+      )}
+      {scoreDetail && (
+        <InfoModal
+          title={scoreDetail.title}
+          subtitle={scoreDetail.subtitle}
+          sections={scoreDetail.sections}
+          onClose={() => setScoreModal(null)}
+        />
+      )}
+
       <h1 className="page-title"><PieIcon size={26} color="var(--gold)" /> Tối ưu hóa danh mục đầu tư</h1>
       <p className="page-subtitle">Phân bổ tài sản thông minh để đạt mục tiêu lợi nhuận và kiểm soát rủi ro</p>
 
       {/* ── KPI cards ── */}
-      <div className="stat-cards">
-        <StatCard
-          icon={<TargetIcon size={14} color="var(--text-muted)" />}
-          label=" Tổng phân bổ"
-          value="100.0%"
-          note="✓ Đã cân bằng"
-          explain="Tổng tỷ trọng của tất cả tài sản trong danh mục luôn bằng 100%, đảm bảo không có vốn nhàn rỗi. Khi điều chỉnh tỷ trọng thủ công, hệ thống sẽ chuẩn hóa lại nếu tổng lệch quá 1%."
-        />
-        <StatCard
-          icon={<TrendUpIcon size={14} color="var(--text-muted)" />}
-          label=" Lợi nhuận / năm"
-          value={data ? fmtPct(dispRet) : '—'}
-          note={retNote}
-          valueColor="var(--green)"
-          explainTitle="Lợi nhuận thực nghiệm (Backtest Return)"
-          explain="Lợi nhuận đã được kiểm nghiệm thực tế trên dữ liệu ngoài mẫu (24/01/2025 – 20/04/2026). 'Thực nghiệm' có nghĩa là mô hình không nhìn thấy dữ liệu này trong quá trình học — kết quả phản ánh hiệu suất thực khi triển khai, không phải ước tính lý thuyết. Quy về năm bằng cách tính tốc độ tăng trưởng trung bình trên số ngày kiểm thử."
-        />
-        <StatCard
-          icon={<ShieldIcon size={14} color="var(--text-muted)" />}
-          label=" Biến động / năm"
-          value={data ? fmtPct(dispVol) : '—'}
-          note="Độ lệch chuẩn (Standard Deviation)"
-          valueColor="var(--gold-dark)"
-          explainTitle="Biến động danh mục (Volatility)"
-          explain="Độ lệch chuẩn (Standard Deviation) của lợi nhuận hằng ngày, nhân √252 để quy về năm. Đây là thước đo rủi ro phổ biến nhất — danh mục có biến động 25% có nghĩa là trong điều kiện bình thường, lợi nhuận hằng năm có thể dao động ±25% so với mức trung bình."
-        />
-        <StatCard
-          label="Sharpe Ratio"
-          value={data ? dispSharpe.toFixed(4) : '—'}
-          note="Risk-Free Rate = 4.5%/năm"
-          valueColor="var(--gold-dark)"
-          explainTitle="Sharpe Ratio — hiệu quả điều chỉnh rủi ro"
-          explain="Sharpe = (Lợi nhuận năm − Risk-Free Rate) / Biến động năm. Risk-Free Rate (lãi suất phi rủi ro) = 4.5%/năm, tương đương lãi suất trái phiếu Chính phủ Việt Nam. Sharpe > 1.0 là tốt, > 1.5 là xuất sắc. Ý nghĩa: bạn nhận được bao nhiêu đơn vị lợi nhuận vượt trội trên mỗi đơn vị rủi ro chấp nhận."
-        />
+      <KpiGrid cards={kpiCards} />
+
+      {/* ── Backtest environment card (dark terminal) ── */}
+      <div style={{
+        background: '#1C1A14', borderRadius: 12, padding: '16px 20px', marginBottom: 16,
+        fontFamily: 'monospace', fontSize: 12, color: '#D4C090',
+      }}>
+        <div style={{ color: '#8A7E60', fontSize: 11, marginBottom: 10, letterSpacing: 1 }}>
+          THIET LAP MOI TRUONG KIEM THU DINH LUONG
+        </div>
+        {[
+          [
+            'Giai doan kiem dinh (Test Set)',
+            '24/01/2025 → 20/04/2026',
+            'Phan tach du lieu (Data Split)',
+            'Huan luyen (Offline): Lich su 2020 – 2024',
+          ],
+          [
+            'Bo quy tac nghiem ngat (Constraints)',
+            null,
+            '[Look-ahead bias = 0]  Khong ro ri hoac su dung du lieu tuong lai',
+            '[Cua so truot = 20 phien]  Do dai chuoi du lieu nap vao GRU Encoder',
+          ],
+          [
+            'Dong co kich hoat tin hieu (Execution Triggers)',
+            null,
+            '  Dau vao thuat toan : 25 chi so dong luong cau truc (OHLCV + Boi canh VN-Index)',
+            '  Nguong tu tin (Conviction) : >= 55.0%  (Ep mo hinh dut khoat ra lenh MUA/BAN)',
+          ],
+        ].map((block, bi) => (
+          <div key={bi} style={{
+            borderTop: bi === 0 ? 'none' : '1px solid #2E2A1E', paddingTop: bi === 0 ? 0 : 10,
+            marginTop: bi === 0 ? 0 : 10,
+          }}>
+            {block.map((line, li) => {
+              if (line === null) return null
+              const isBadge = line.startsWith('[')
+              const isHeader = li === 0
+              return (
+                <div key={li} style={{
+                  display: isHeader ? 'flex' : 'block',
+                  color: isHeader ? '#C4A265' : isBadge ? '#7EC8A0' : '#9E9070',
+                  fontWeight: isHeader ? 700 : 400,
+                  marginBottom: 3,
+                  gap: 24,
+                }}>
+                  {isHeader && bi === 0 ? (
+                    <>
+                      <span style={{ flex: 1 }}>{block[0]}<br /><span style={{ color: '#D4C090', fontWeight: 400 }}>{block[1]}</span></span>
+                      <span style={{ color: '#6E6040', margin: '0 8px' }}>|</span>
+                      <span style={{ flex: 1 }}>{block[2]}<br /><span style={{ color: '#D4C090', fontWeight: 400 }}>{block[3]}</span></span>
+                    </>
+                  ) : isHeader ? line : line}
+                </div>
+              )
+            })}
+          </div>
+        ))}
       </div>
 
       {/* ── Backtest leaderboard ── */}
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-title">Kết quả Kiểm Thử Thực Nghiệm — Walk-Forward Backtest</div>
-        <div style={{ marginBottom: 12 }}>
-          <div className="card-sub">
-            Dữ liệu kiểm thử: <strong>24/01/2025 – 20/04/2026</strong> · Dữ liệu huấn luyện: 2020–2024 · Phương pháp: Walk-Forward, không nhìn trước (look-ahead = 0)
-          </div>
-          <div className="card-sub" style={{ marginTop: 4 }}>
-            Cơ chế: tại mỗi phiên, mô hình phát tín hiệu MUA/BÁN/GIỮ dựa trên 25 chỉ số kỹ thuật của 20 phiên gần nhất · Conviction threshold ≥ 0.55 · Nhấn vào từng chỉ số để xem giải thích chi tiết.
-          </div>
-        </div>
+        <div className="card-sub" style={{ marginBottom: 12 }}>Nhấn vào từng chỉ số để xem giải thích</div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
@@ -402,14 +541,12 @@ export default function Portfolio() {
               </tr>
             </thead>
             <tbody>
-              {BACKTEST_META.map((row, i) => (
-                <MetricRow key={i} row={row} i={i} />
-              ))}
+              {BACKTEST_META.map((row, i) => <MetricRow key={i} row={row} i={i} />)}
             </tbody>
           </table>
         </div>
-        <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-          (*) VN-Index được dùng làm chuẩn tham chiếu theo chiến lược mua và nắm giữ thụ động. Max Drawdown và Win Rate chỉ tính cho danh mục có tín hiệu giao dịch chủ động từ mô hình.
+        <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)' }}>
+          (*) VN-Index là chuẩn tham chiếu thụ động — không có tín hiệu giao dịch nên không tính Max Drawdown và Win Rate.
         </div>
       </div>
 
@@ -420,25 +557,54 @@ export default function Portfolio() {
           {/* Strategy selector */}
           <div className="card">
             <div className="card-title">Chiến lược đầu tư</div>
-            <div className="card-sub" style={{ marginBottom: 12 }}>Chọn chiến lược phù hợp với khẩu vị rủi ro của bạn</div>
+            <div className="card-sub" style={{ marginBottom: 12 }}>Chọn chiến lược phù hợp với khẩu vị rủi ro</div>
 
-            {/* Profile cards */}
-            {[
-              { key: 'prudent',      idx: 0 },
-              { key: 'equal_weight', idx: 1 },
-              { key: 'risk_taking',  idx: 2 },
-            ].map(({ key, idx }) => (
-              <div
-                key={key}
-                onClick={() => setRiskIdx(idx)}
-                style={{ cursor: 'pointer', opacity: riskIdx === idx ? 1 : 0.65, transition: 'opacity 0.2s' }}
-              >
-                <ProfileCard info={PROFILE_COPY[key]} active={riskIdx === idx} />
+            {/* Risk slider */}
+            <div className="form-group">
+              <div className="risk-label">
+                <span className="risk-label-key">Khẩu vị rủi ro</span>
+                <span className="risk-label-val">{RISK_LABELS[riskIdx]}</span>
               </div>
-            ))}
+              <input
+                type="range" min={0} max={2} step={1}
+                value={riskIdx}
+                onChange={e => setRiskIdx(+e.target.value)}
+              />
+              <div className="slider-marks">
+                <span>Thận trọng</span>
+                <span>Cân bằng</span>
+                <span>Tích cực</span>
+              </div>
+            </div>
 
-            {/* Cash allocation slider */}
-            <div className="form-group" style={{ marginTop: 4 }}>
+            {/* Current strategy badge + detail button */}
+            {(() => {
+              const d = PROFILE_DETAIL[profile]
+              return (
+                <div style={{
+                  background: '#F5EFE6', borderRadius: 8, padding: '10px 12px', marginBottom: 14,
+                  borderLeft: `3px solid ${d.badgeColor}`,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'nowrap' }}>
+                    <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>{d.title}</span>
+                    <button
+                      onClick={() => setStratModal(profile)}
+                      style={{
+                        flexShrink: 0, fontSize: 11, fontWeight: 600, color: '#fff',
+                        background: d.badgeColor, border: 'none', borderRadius: 4,
+                        padding: '2px 8px', cursor: 'pointer', whiteSpace: 'nowrap',
+                      }}
+                    >{d.badge} ↗</button>
+                  </div>
+                  <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+                    {PROFILE_DETAIL[profile].sections[0].body.slice(0, 120)}…
+                  </p>
+                </div>
+              )
+            })()}
+
+            {/* Cash slider */}
+            <div className="form-group">
               <div className="risk-label">
                 <span className="risk-label-key">Tiền mặt (Risk-Free Rate = 4.5%/năm)</span>
                 <span className="risk-label-val">{cashPct}%</span>
@@ -474,18 +640,28 @@ export default function Portfolio() {
           {/* Asset list */}
           {data && (
             <div className="card">
-              <div className="card-title">Quản lý tài sản</div>
-              <div className="card-sub" style={{ marginBottom: 4 }}>Chỉnh tỷ trọng → Nhấn "Tính kịch bản" để xem kết quả mô phỏng</div>
-
-              {/* Legend */}
-              <div style={{
-                background: '#FAF7F2', border: '1px solid #E8DFD0', borderRadius: 6,
-                padding: '7px 10px', marginBottom: 10, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.6,
-              }}>
-                <strong style={{ color: 'var(--green)' }}>Điểm lợi nhuận (0–100):</strong> Điểm tổng hợp từ 5 yếu tố — tín hiệu mô hình MTL, chỉ số kỹ thuật, tín hiệu XGBoost, Sharpe lịch sử, và xu hướng giá. Cổ phiếu đạt điểm cao hơn được mô hình đánh giá có tiềm năng sinh lợi tốt hơn.
-                <br />
-                <strong style={{ color: 'var(--gold-dark)' }}>Điểm rủi ro (0–10):</strong> Điểm tổng hợp từ 5 yếu tố — biến động giá, áp lực bán, mức sụt giảm lịch sử, tương quan danh mục, và nguy cơ đảo chiều. Điểm càng cao thì rủi ro càng lớn.
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                <div className="card-title" style={{ margin: 0 }}>Quản lý tài sản</div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button
+                    onClick={() => setScoreModal('profit')}
+                    style={{
+                      fontSize: 11, fontWeight: 600, color: '#2E7D32',
+                      background: '#E8F5E9', border: '1px solid #A8D5B8',
+                      borderRadius: 6, padding: '3px 8px', cursor: 'pointer',
+                    }}
+                  >Điểm lợi nhuận ?</button>
+                  <button
+                    onClick={() => setScoreModal('risk')}
+                    style={{
+                      fontSize: 11, fontWeight: 600, color: '#9E7E45',
+                      background: '#FFF8E1', border: '1px solid #E8C97A',
+                      borderRadius: 6, padding: '3px 8px', cursor: 'pointer',
+                    }}
+                  >Điểm rủi ro ?</button>
+                </div>
               </div>
+              <div className="card-sub" style={{ marginBottom: 8 }}>Chỉnh tỷ trọng → Nhấn "Tính kịch bản"</div>
 
               <div className="asset-list-scroll" style={{ marginTop: 4 }}>
                 {data.stocks.map((s, i) => {
@@ -515,13 +691,13 @@ export default function Portfolio() {
                           />
                         </div>
                         <div>
-                          <div className="asset-field-label">Điểm lợi nhuận</div>
+                          <div className="asset-field-label">Điểm LN</div>
                           <div className="asset-field-value" style={{ color: 'var(--green)' }}>
                             {prof ? (prof.composite_score * 100).toFixed(0) + '/100' : '—'}
                           </div>
                         </div>
                         <div>
-                          <div className="asset-field-label">Điểm rủi ro</div>
+                          <div className="asset-field-label">Điểm RR</div>
                           <div className="asset-field-value" style={{ color: 'var(--gold-dark)' }}>
                             {rsk ? rsk.composite_risk.toFixed(1) + '/10' : s.risk_score.toFixed(1) + '/10'}
                           </div>
@@ -539,7 +715,6 @@ export default function Portfolio() {
                   fontSize: 12, color: '#C0392B',
                 }}>{weightError}</div>
               )}
-
               {scenario && (
                 <div style={{
                   background: '#F0F7F0', border: '1px solid #A8D5A8',
@@ -553,7 +728,6 @@ export default function Portfolio() {
                   <div>Sharpe Ratio: <strong>{scenario.sharpe_ratio.toFixed(4)}</strong></div>
                 </div>
               )}
-
               <button
                 className="btn btn-primary btn-full"
                 style={{ marginTop: 10 }}
@@ -570,8 +744,7 @@ export default function Portfolio() {
         <div>
           {loading && (
             <div className="card">
-              <div className="spinner-wrap">
-                <div className="spinner" />
+              <div className="spinner-wrap"><div className="spinner" />
                 <p className="spinner-label">Đang tải dữ liệu danh mục...</p>
               </div>
             </div>
@@ -580,7 +753,6 @@ export default function Portfolio() {
 
           {data && !loading && (
             <>
-              {/* Pie chart */}
               <div className="chart-block" style={{ marginBottom: 16 }}>
                 <div className="chart-block-title">Phân bổ danh mục</div>
                 <div className="chart-block-sub">Tỷ trọng từng tài sản</div>
@@ -600,12 +772,9 @@ export default function Portfolio() {
                 </ResponsiveContainer>
               </div>
 
-              {/* Bar chart */}
               <div className="chart-block" style={{ marginBottom: 16 }}>
                 <div className="chart-block-title">Điểm lợi nhuận vs điểm rủi ro</div>
-                <div className="chart-block-sub">
-                  Điểm lợi nhuận: thứ hạng phần trăm 0–100 · Điểm rủi ro: 0–10 (×10 để so sánh)
-                </div>
+                <div className="chart-block-sub">Điểm LN: thứ hạng % 0–100 · Điểm RR: 0–10 (×10 để so sánh)</div>
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={barData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#EDE5D8" vertical={false} />
@@ -619,35 +788,27 @@ export default function Portfolio() {
                 </ResponsiveContainer>
               </div>
 
-              {/* Academic accordion */}
               <div className="card">
                 <div className="card-title" style={{ marginBottom: 10 }}>Phương pháp học thuật</div>
                 <AccSection id="walkforward" title="Walk-Forward Backtest — Cơ chế kiểm thử" open={!!accOpen.walkforward} onToggle={toggleAcc}>
-                  <p>Walk-forward backtest mô phỏng giao dịch thực tế theo thời gian tuyến tính: tại mỗi phiên <em>t</em>, mô hình chỉ được phép sử dụng dữ liệu tính đến phiên <em>t</em> để phát tín hiệu, sau đó đánh giá kết quả tại phiên <em>t+1</em>. Không có look-ahead bias (không nhìn trước tương lai).</p>
-                  <p style={{ marginTop: 8 }}>Thiết lập cụ thể: cửa sổ nhìn lại (look-back) = 20 phiên giao dịch · Ngưỡng tin cậy (conviction threshold) = 0.55 · Giai đoạn kiểm thử: 24/01/2025 – 20/04/2026. Dữ liệu kiểm thử hoàn toàn tách biệt với dữ liệu huấn luyện (2020–2024).</p>
+                  <p>Walk-forward backtest mô phỏng giao dịch thực tế theo thời gian tuyến tính: tại mỗi phiên <em>t</em>, mô hình chỉ được phép sử dụng dữ liệu tính đến phiên <em>t</em> để phát tín hiệu, sau đó đánh giá kết quả tại phiên <em>t+1</em>. Không có look-ahead bias.</p>
+                  <p style={{ marginTop: 8 }}>Thiết lập: cửa sổ nhìn lại = 20 phiên · Conviction ≥ 0.55 · Giai đoạn kiểm thử: 24/01/2025 – 20/04/2026 · Dữ liệu kiểm thử tách biệt hoàn toàn với dữ liệu huấn luyện (2020–2024).</p>
                 </AccSection>
-
                 <AccSection id="sharpe" title="Sharpe Ratio — Đo lường hiệu quả điều chỉnh rủi ro" open={!!accOpen.sharpe} onToggle={toggleAcc}>
-                  <p>
-                    Công thức (đầu vào đã được quy về năm):
-                  </p>
+                  <p>Công thức (đầu vào đã được quy về năm):</p>
                   <div style={{
-                    background: '#F5EFE6', borderRadius: 6, padding: '8px 12px',
-                    margin: '8px 0', fontFamily: 'monospace', fontSize: 13,
-                    color: 'var(--text-primary)', textAlign: 'center',
+                    background: '#F5EFE6', borderRadius: 6, padding: '8px 12px', margin: '8px 0',
+                    fontFamily: 'monospace', fontSize: 13, color: 'var(--text-primary)', textAlign: 'center',
                   }}>
                     Sharpe = (μ<sub>năm</sub> − RF<sub>năm</sub>) / σ<sub>năm</sub>
                   </div>
-                  <p>
-                    Trong đó: μ<sub>năm</sub> = lợi nhuận trung bình hằng năm (= lợi nhuận ngày × 252), σ<sub>năm</sub> = độ lệch chuẩn hằng năm (= độ lệch chuẩn ngày × √252), RF<sub>năm</sub> = 4.5%/năm (Risk-Free Rate — lãi suất phi rủi ro tương đương trái phiếu Chính phủ VN). Do μ và σ đã được quy về năm trước khi tính, công thức không cần thêm hệ số √252.
-                  </p>
-                  <p style={{ marginTop: 8 }}>Equal-Weight Top 10 đạt Sharpe <strong>1.6201</strong> — vượt VN-Index (1.1694) và cả hai chiến lược Markowitz MVO. Sharpe {'>'} 1.0 là tốt; {'>'} 1.5 là xuất sắc.</p>
+                  <p>μ<sub>năm</sub> = lợi nhuận ngày × 252, σ<sub>năm</sub> = độ lệch chuẩn ngày × √252, RF<sub>năm</sub> = 4.5%/năm. Do μ và σ đã được quy về năm trước khi tính, công thức không cần thêm hệ số √252.</p>
+                  <p style={{ marginTop: 8 }}>Equal-Weight Top 10 đạt Sharpe <strong>1.6201</strong> — vượt VN-Index (1.1694) và cả hai chiến lược Markowitz MVO.</p>
                 </AccSection>
-
                 <AccSection id="mvo" title="Tại sao Equal-Weight thắng Markowitz MVO?" open={!!accOpen.mvo} onToggle={toggleAcc}>
-                  <p><strong>Lý thuyết (DeMiguel et al., 2009):</strong> MVO tối ưu hóa dựa trên ma trận hiệp phương sai ước lượng từ dữ liệu lịch sử. Sai số ước lượng này tích lũy và thường làm cho phân bổ đều 1/N thắng out-of-sample — kết quả được kiểm chứng trên 14 bộ dữ liệu thực tế.</p>
-                  <p style={{ marginTop: 8 }}><strong>Yếu tố cụ thể — VIC outlier:</strong> VIC tăng +678% trong giai đoạn kiểm thử. Equal-Weight tự động phân bổ 10% cho VIC; MVO chỉ phân bổ 2% do biến động lịch sử cao của VIC. Một cổ phiếu này đóng góp phần lớn chênh lệch hiệu suất.</p>
-                  <p style={{ marginTop: 8 }}><em>"No investment strategy can be expected to consistently outperform the 1/N naive diversification rule."</em> — DeMiguel, Garlappi &amp; Uppal (2009), Review of Financial Studies.</p>
+                  <p><strong>Lý thuyết (DeMiguel et al., 2009):</strong> Sai số ước lượng ma trận hiệp phương sai tích lũy và thường làm cho 1/N Equal-Weight thắng out-of-sample — kiểm chứng trên 14 bộ dữ liệu thực tế.</p>
+                  <p style={{ marginTop: 8 }}><strong>Yếu tố cụ thể — VIC outlier:</strong> VIC tăng +678% trong giai đoạn kiểm thử. Equal-Weight phân bổ 10% cho VIC; MVO chỉ phân bổ 2% do biến động lịch sử cao. Một cổ phiếu này đóng góp phần lớn chênh lệch.</p>
+                  <p style={{ marginTop: 8 }}><em>"No investment strategy can be expected to consistently outperform the 1/N naive diversification rule."</em> — DeMiguel, Garlappi &amp; Uppal (2009).</p>
                 </AccSection>
               </div>
             </>
