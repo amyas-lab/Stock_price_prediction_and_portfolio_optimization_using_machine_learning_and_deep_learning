@@ -7,20 +7,20 @@ import {
 import { predictPrice, predictSignal } from '../api/stockApi.js'
 
 const TICKER_NAMES = {
-  FPT:'FPT Corporation', VCB:'Vietcombank', VHM:'Vinhomes', VNM:'Vinamilk',
-  HPG:'Hòa Phát', VIC:'Vingroup', TCB:'Techcombank', MSN:'Masan Group',
-  MWG:'Mobile World', VND:'VNDirect', BID:'BIDV', CTG:'VietinBank',
-  MBB:'MB Bank', ACB:'ACB Bank', HDB:'HDBank', TPB:'TPBank',
-  SHB:'SHB Bank', PDR:'Phát Đạt', KDH:'Khang Điền', DXG:'Đất Xanh',
-  GAS:'PetroVietnam Gas', HSG:'Hoa Sen', PNJ:'Phú Nhuận Jewelry',
-  SAB:'Sabeco', CMG:'CMC Tech', ELC:'Elcom', SGT:'Saigon Tel',
+  FPT: 'FPT Corporation', VCB: 'Vietcombank', VHM: 'Vinhomes', VNM: 'Vinamilk',
+  HPG: 'Hòa Phát', VIC: 'Vingroup', TCB: 'Techcombank', MSN: 'Masan Group',
+  MWG: 'Mobile World', VND: 'VNDirect', BID: 'BIDV', CTG: 'VietinBank',
+  MBB: 'MB Bank', ACB: 'ACB Bank', HDB: 'HDBank', TPB: 'TPBank',
+  SHB: 'SHB Bank', PDR: 'Phát Đạt', KDH: 'Khang Điền', DXG: 'Đất Xanh',
+  GAS: 'PetroVietnam Gas', HSG: 'Hoa Sen', PNJ: 'Phú Nhuận Jewelry',
+  SAB: 'Sabeco', CMG: 'CMC Tech', ELC: 'Elcom', SGT: 'Saigon Tel',
 }
 const KNOWN = new Set(Object.keys(TICKER_NAMES))
 
 const SPECIALIZED = new Set([
-  'FPT','VCB','VHM','VNM','HPG','VIC','TCB','MSN','MWG','VND',
-  'BID','CTG','MBB','ACB','HDB','TPB','SHB','PDR','KDH','DXG',
-  'GAS','HSG','PNJ','SAB','CMG','ELC','SGT',
+  'FPT', 'VCB', 'VHM', 'VNM', 'HPG', 'VIC', 'TCB', 'MSN', 'MWG', 'VND',
+  'BID', 'CTG', 'MBB', 'ACB', 'HDB', 'TPB', 'SHB', 'PDR', 'KDH', 'DXG',
+  'GAS', 'HSG', 'PNJ', 'SAB', 'CMG', 'ELC', 'SGT',
 ])
 
 function fmtVND(v) {
@@ -90,7 +90,7 @@ const ChartTooltip = ({ active, payload, label }) => {
 }
 
 const SIGNAL_STYLE = {
-  BUY:  { bg: '#E8F5E9', color: '#2E7D32', label: 'MUA' },
+  BUY: { bg: '#E8F5E9', color: '#2E7D32', label: 'MUA' },
   SELL: { bg: '#FFEBEE', color: '#C62828', label: 'BÁN' },
   HOLD: { bg: '#FFF8E1', color: '#9E7E45', label: 'GIỮ' },
 }
@@ -508,7 +508,7 @@ function ModelExplainModal({ onClose }) {
             <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 14 }}>
                 {[
-                  { label: 'BUY',  cond: 'Return ≥ +2.0%\ntrong 5 ngày', color: '#2E7D32', bg: '#E8F5E9' },
+                  { label: 'BUY', cond: 'Return ≥ +2.0%\ntrong 5 ngày', color: '#2E7D32', bg: '#E8F5E9' },
                   { label: 'SELL', cond: 'Return ≤ −1.5%\ntrong 5 ngày', color: '#C62828', bg: '#FFEBEE' },
                   { label: 'HOLD', cond: 'Khoảng giữa\nkhông tín hiệu', color: '#9E7E45', bg: '#FFF8E1' },
                 ].map(c => (
@@ -567,7 +567,7 @@ function ModelExplainModal({ onClose }) {
           {/* ── Section 7 ── */}
           <Section id="importance" title="7. Feature Importance: XGBoost T4">
             <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>
-              Biểu đồ dưới đây cho thấy mức độ đóng góp của từng nhóm đặc trưng vào quyết định của XGBoost. Các feature từ mạng Học sâu (MTL) và Hình học cản (S/R) thường đứng đầu bảng.
+              Các chỉ báo xu hướng từ Thị trường chung (VN-Index) áp đảo hoàn toàn ở top đầu, xác nhận bối cảnh vĩ mô quyết định 70% hướng đi của cổ phiếu, theo sau là các tín hiệu xác suất từ mạng Học sâu (MTL).
             </div>
             <img
               src="/notebook/feature_importance_signal.png"
@@ -617,9 +617,9 @@ function ModelExplainModal({ onClose }) {
                 Hệ thống không dùng một mô hình duy nhất mà là sự phối hợp của Deep Learning và Machine Learning xếp chồng. Mô hình đi trước "sơ chế" và bóc tách dữ liệu khó cho mô hình đi sau "gút lệnh".
               </P>
               <div style={{ background: '#1e1e1e', borderRadius: 8, padding: '12px 14px', fontFamily: 'monospace', fontSize: 11, color: '#d4d4d4', marginBottom: 14, overflowX: 'auto', lineHeight: 1.8 }}>
-                {'[Chuỗi 20 ngày giá] ──► Mạng GRU + Attention ──► [Xác suất xu hướng (MTL Prior)]'}<br/>
-                {'                                                            │'}<br/>
-                {'                                                            ▼'}<br/>
+                {'[Chuỗi 20 ngày giá] ──► Mạng GRU + Attention ──► [Xác suất xu hướng (MTL Prior)]'}<br />
+                {'                                                            │'}<br />
+                {'                                                            ▼'}<br />
                 {'[Chỉ báo kỹ thuật + Hỗ trợ/Kháng cự K-Means] ───►  XGBoost  ───► TÍN HIỆU'}
               </div>
 
@@ -942,21 +942,21 @@ function PricePredictionModal({ onClose }) {
           <Section id="architecture" title="4. Kiến trúc MTL T4: GRU → Attention → Regression & Classification">
             <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
               <div style={{ background: '#1e1e1e', borderRadius: 8, padding: '14px 16px', fontFamily: 'monospace', fontSize: 11, color: '#d4d4d4', marginBottom: 16, overflowX: 'auto', lineHeight: 2 }}>
-                <span style={{ color: '#569cd6' }}>Input</span> [batch, 20, 25]<br/>
-                {'  ↓'}<br/>
-                <span style={{ color: '#4ec9b0' }}>GRU</span>(64 units, return_sequences=True) → [batch, 20, 64]<br/>
-                {'  ↓'}<br/>
-                <span style={{ color: '#4ec9b0' }}>Multi-Head Attention</span>(2 heads, Dropout 0.3) → [batch, 20, 64]<br/>
-                {'  ↓'}<br/>
-                <span style={{ color: '#4ec9b0' }}>GlobalAveragePooling</span> + <span style={{ color: '#4ec9b0' }}>LayerNorm</span> → [batch, 64]<br/>
-                {'  ↓ (split)'}<br/>
-                <span style={{ color: '#ce9178' }}>{'Regression Branch              Classification Branch'}</span><br/>
-                {'  RepeatVector(5)                Dense(32)'}<br/>
-                {'       ↓                              ↓'}<br/>
-                {'  Decoder GRU(64)             Dropout(0.3)'}<br/>
-                {'       ↓                              ↓'}<br/>
-                {'  TimeDistributed(Dense(1))   Dense(3) → Softmax'}<br/>
-                {'       ↓                              ↓'}<br/>
+                <span style={{ color: '#569cd6' }}>Input</span> [batch, 20, 25]<br />
+                {'  ↓'}<br />
+                <span style={{ color: '#4ec9b0' }}>GRU</span>(64 units, return_sequences=True) → [batch, 20, 64]<br />
+                {'  ↓'}<br />
+                <span style={{ color: '#4ec9b0' }}>Multi-Head Attention</span>(2 heads, Dropout 0.3) → [batch, 20, 64]<br />
+                {'  ↓'}<br />
+                <span style={{ color: '#4ec9b0' }}>GlobalAveragePooling</span> + <span style={{ color: '#4ec9b0' }}>LayerNorm</span> → [batch, 64]<br />
+                {'  ↓ (split)'}<br />
+                <span style={{ color: '#ce9178' }}>{'Regression Branch              Classification Branch'}</span><br />
+                {'  RepeatVector(5)                Dense(32)'}<br />
+                {'       ↓                              ↓'}<br />
+                {'  Decoder GRU(64)             Dropout(0.3)'}<br />
+                {'       ↓                              ↓'}<br />
+                {'  TimeDistributed(Dense(1))   Dense(3) → Softmax'}<br />
+                {'       ↓                              ↓'}<br />
                 {'  [fr_1d..fr_5d]         [P_SELL, P_HOLD, P_BUY]'}
               </div>
 
@@ -964,7 +964,7 @@ function PricePredictionModal({ onClose }) {
                 <div style={{ padding: 14, background: '#E8F5E9', borderRadius: 10, border: '1px solid #4A7C5F33' }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: '#4A7C5F', marginBottom: 8 }}>Regression Branch</div>
                   <div style={{ fontSize: 12, lineHeight: 1.7 }}>
-                    Xuất chuỗi 5 log-return [fr_1d … fr_5d]. Giá tại ngày k được tính theo:<br/>
+                    Xuất chuỗi 5 log-return [fr_1d … fr_5d]. Giá tại ngày k được tính theo:<br />
                     <code style={{ background: '#E0F0E8', padding: '3px 8px', borderRadius: 4, display: 'block', marginTop: 8, fontSize: 12 }}>
                       P(t+k) = P(t) × e^fr_k
                     </code>
@@ -1050,13 +1050,13 @@ function PricePredictionModal({ onClose }) {
 // ── Main Component ────────────────────────────────────────────
 
 export default function PredictPrice() {
-  const [ticker,        setTicker]        = useState('')
-  const [forecastDays,  setForecastDays]  = useState(5)
-  const [loading,       setLoading]       = useState(false)
-  const [result,        setResult]        = useState(null)
-  const [signal,        setSignal]        = useState(null)
-  const [error,         setError]         = useState(null)
-  const [showModal,     setShowModal]     = useState(false)
+  const [ticker, setTicker] = useState('')
+  const [forecastDays, setForecastDays] = useState(5)
+  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState(null)
+  const [signal, setSignal] = useState(null)
+  const [error, setError] = useState(null)
+  const [showModal, setShowModal] = useState(false)
   const [showExecModal, setShowExecModal] = useState(false)
   const [showPriceModal, setShowPriceModal] = useState(false)
 
@@ -1079,22 +1079,22 @@ export default function PredictPrice() {
   }
 
   const slicedReturns = result ? result.predicted_returns.slice(0, forecastDays) : []
-  const chartData  = result ? buildChartData(result.current_price, slicedReturns, result.direction, result.historical_prices ?? []) : []
+  const chartData = result ? buildChartData(result.current_price, slicedReturns, result.direction, result.historical_prices ?? []) : []
   const returnBars = result ? buildReturnBars(slicedReturns, result.direction) : []
-  const allPrices  = chartData.flatMap(d => [d.actual, d.predicted]).filter(Boolean)
+  const allPrices = chartData.flatMap(d => [d.actual, d.predicted]).filter(Boolean)
   const yMin = allPrices.length ? Math.round(Math.min(...allPrices) * 0.995) : 0
   const yMax = allPrices.length ? Math.round(Math.max(...allPrices) * 1.005) : 'auto'
 
-  const cumReturn   = slicedReturns.reduce((acc, r) => acc + safeReturn(r, result?.direction), 0)
+  const cumReturn = slicedReturns.reduce((acc, r) => acc + safeReturn(r, result?.direction), 0)
   const predictedND = result ? Math.round(result.current_price * Math.exp(cumReturn)) : null
-  const isUp        = cumReturn > 0
-  const sigStyle    = signal ? (SIGNAL_STYLE[signal.signal] ?? SIGNAL_STYLE.HOLD) : null
-  const isSpecial   = result ? SPECIALIZED.has(result.ticker) : false
+  const isUp = cumReturn > 0
+  const sigStyle = signal ? (SIGNAL_STYLE[signal.signal] ?? SIGNAL_STYLE.HOLD) : null
+  const isSpecial = result ? SPECIALIZED.has(result.ticker) : false
 
   return (
     <>
-      {showModal      && <ModelExplainModal     onClose={() => setShowModal(false)} />}
-      {showExecModal  && <ExecutionGuideModal  onClose={() => setShowExecModal(false)} />}
+      {showModal && <ModelExplainModal onClose={() => setShowModal(false)} />}
+      {showExecModal && <ExecutionGuideModal onClose={() => setShowExecModal(false)} />}
       {showPriceModal && <PricePredictionModal onClose={() => setShowPriceModal(false)} />}
 
       <div className="predict-layout">
@@ -1315,11 +1315,11 @@ export default function PredictPrice() {
                   <AreaChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
                     <defs>
                       <linearGradient id="fillActual" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%"  stopColor="#4A7C5F" stopOpacity={0.25} />
+                        <stop offset="5%" stopColor="#4A7C5F" stopOpacity={0.25} />
                         <stop offset="95%" stopColor="#4A7C5F" stopOpacity={0.02} />
                       </linearGradient>
                       <linearGradient id="fillPredicted" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%"  stopColor="#C4A265" stopOpacity={0.25} />
+                        <stop offset="5%" stopColor="#C4A265" stopOpacity={0.25} />
                         <stop offset="95%" stopColor="#C4A265" stopOpacity={0.02} />
                       </linearGradient>
                     </defs>
@@ -1396,7 +1396,7 @@ export default function PredictPrice() {
                 {signal && (
                   <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
                     {[
-                      { label: 'P(MUA)', value: signal.p_buy,  color: '#4A7C5F', bg: '#E8F5E9' },
+                      { label: 'P(MUA)', value: signal.p_buy, color: '#4A7C5F', bg: '#E8F5E9' },
                       { label: 'P(GIỮ)', value: signal.p_hold, color: '#9E7E45', bg: '#FFF8E1' },
                       { label: 'P(BÁN)', value: signal.p_sell, color: '#C62828', bg: '#FFEBEE' },
                     ].map(({ label, value, color, bg }) => (
