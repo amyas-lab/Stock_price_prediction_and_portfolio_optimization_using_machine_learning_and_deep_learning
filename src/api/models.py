@@ -60,6 +60,49 @@ class PricePredictionResponse(BaseModel):
     )
 
 
+class FeatureContext(BaseModel):
+    """Intermediate feature values used by XGBoost T4 — shown as rationale on UI."""
+    # Technical
+    rsi             : float
+    macd_hist       : float
+    log_return      : float
+    # MA crossover
+    ema_10          : float
+    ema_20          : float
+    ema_50          : float
+    ma_alignment    : float  = Field(description="+1=bullish, -1=bearish, 0=mixed")
+    ma_short_gap_pct: float  = Field(description="(EMA10-EMA20)/EMA20 *100")
+    ma_long_gap_pct : float  = Field(description="(EMA20-EMA50)/EMA50 *100")
+    ma_golden_cross_short: float
+    ma_death_cross_short : float
+    ma_golden_cross_long : float
+    ma_death_cross_long  : float
+    # S/R zone
+    sr_distance_pct      : float
+    sr_breakout_up       : float
+    sr_breakout_down     : float
+    sr_near_resistance   : float
+    sr_near_support      : float
+    # MTL model output
+    mtl_p_up_t4          : float
+    mtl_p_down_t4        : float
+    mtl_conviction_t4    : float
+
+
+class ShapContribution(BaseModel):
+    feature     : str
+    shap_value  : float
+    direction   : str   = Field(description="positive | negative")
+
+
+class ShapExplainResponse(BaseModel):
+    ticker          : str
+    signal          : str
+    predicted_class : int
+    contributions   : List[ShapContribution]
+    base_value      : float
+
+
 class SignalResponse(BaseModel):
     ticker          : str
     signal_date     : str
@@ -72,6 +115,10 @@ class SignalResponse(BaseModel):
     recommendation  : str
     is_known_ticker : bool  = Field(default=True)
     data_source     : str   = Field(default="pre-computed")
+    feature_context : Optional[FeatureContext] = Field(
+        default=None,
+        description="Raw indicator values used as model input (shown as rationale)"
+    )
 
 
 class PortfolioStock(BaseModel):

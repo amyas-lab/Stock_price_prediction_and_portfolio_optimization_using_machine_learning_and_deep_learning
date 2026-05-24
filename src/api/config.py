@@ -18,11 +18,13 @@ MODEL_PATHS = {
     'mtl_t4'         : MODELS_DIR / 'mtl_t4_final.keras',
     'xgb_signal_t3'  : MODELS_DIR / 'task3_xgb_final_signal.pkl',
     'xgb_signal_t4'  : MODELS_DIR / 'xgb_t4_signal.pkl',
-    'feature_scaler' : MODELS_DIR / 'generalist_feature_scaler.pkl',
-    'target_scaler'  : MODELS_DIR / 'generalist_target_multi_scaler.pkl',
-    'task4_scaler'   : MODELS_DIR / 'task4_feature_scaler.pkl',
-    'ticker_encoder' : MODELS_DIR / 'ticker_label_encoder.pkl',
-    'sr_scaler'      : MODELS_DIR / 'task3_new_features_scaler.pkl',
+    'feature_scaler'        : MODELS_DIR / 'generalist_feature_scaler.pkl',
+    'target_scaler'         : MODELS_DIR / 'generalist_target_multi_scaler.pkl',
+    'task4_scaler'          : MODELS_DIR / 'task4_feature_scaler.pkl',
+    'ticker_encoder'        : MODELS_DIR / 'ticker_label_encoder.pkl',
+    'sr_scaler'             : MODELS_DIR / 'task3_new_features_scaler.pkl',
+    'task4_ticker_encoder'  : MODELS_DIR / 'task4_ticker_encoder.pkl',
+    'xgb_t4_signal_scaler'  : MODELS_DIR / 'task4_xgb_signal_scaler.pkl',
 }
 
 # Data paths

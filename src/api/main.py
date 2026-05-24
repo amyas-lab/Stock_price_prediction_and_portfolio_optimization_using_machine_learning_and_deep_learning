@@ -44,8 +44,16 @@ from src.api.models import (
     ProfitabilityResponse, ProfitabilityScore,
     RiskResponse, RiskScore, HealthResponse,
     BacktestSummary, EquityPoint, BacktestEquityResponse,
+    FeatureContext, ShapContribution, ShapExplainResponse,
 )
-from src.api.feature_pipeline import build_live_features
+
+try:
+    import shap as _shap
+    _SHAP_AVAILABLE = True
+except ImportError:
+    _SHAP_AVAILABLE = False
+    print("  ⚠ shap not installed — /predict/signal/explain will be unavailable")
+from src.api.feature_pipeline import build_live_features, build_xgb_signal_features
 
 # ── Global stores ─────────────────────────────────────────────
 MODELS: dict = {}
@@ -76,6 +84,7 @@ async def lifespan(app: FastAPI):
         "xgb_signal_t3", "xgb_signal_t4",
         "feature_scaler", "target_scaler",
         "task4_scaler", "ticker_encoder", "sr_scaler",
+        "task4_ticker_encoder", "xgb_t4_signal_scaler",
     ]:
         try:
             MODELS[key] = joblib.load(MODEL_PATHS[key])
@@ -83,6 +92,17 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             print(f"  ✗ {key} failed: {e}")
             MODELS[key] = None
+
+    # SHAP explainer for XGBoost T4 signal
+    if _SHAP_AVAILABLE and MODELS.get("xgb_signal_t4") is not None:
+        try:
+            MODELS["shap_explainer_t4"] = _shap.TreeExplainer(MODELS["xgb_signal_t4"])
+            print("  ✓ shap_explainer_t4 loaded")
+        except Exception as e:
+            print(f"  ✗ shap_explainer_t4 failed: {e}")
+            MODELS["shap_explainer_t4"] = None
+    else:
+        MODELS["shap_explainer_t4"] = None
 
     # Pre-computed CSVs
     for key, path in DATA_PATHS.items():
@@ -302,49 +322,76 @@ async def predict_price(request: PredictionRequest):
           tags=["Signal"])
 async def predict_signal(request: SignalRequest):
     """
-    BUY / SELL / HOLD trading signal.
+    BUY / SELL / HOLD trading signal (5-day horizon).
 
-    Branch 1 (27 known tickers): reads pre-computed signal CSV → instant.
-    Branch 2 (any other ticker): runs MTL classification head on live features.
+    Branch 1 (27 T4 tickers): XGBoost T4 live pipeline
+      — fetches today's OHLCV, computes 41 features (tech + S/R + MA + MTL),
+        runs xgb_t4_signal.pkl → freshest signal every request.
+    Fallback A: pre-computed signal CSV (known tickers, if live fetch fails).
+    Fallback B: MTL classification head (any ticker, last resort).
     """
     ticker    = request.ticker.upper()
     threshold = request.threshold
     is_known  = ticker in KNOWN_TICKERS
 
     p_buy = p_sell = p_hold = 1 / 3
-    sig_date    = str(datetime.today().date())
-    data_source = "pre-computed"
+    sig_date      = str(datetime.today().date())
+    data_source   = "fallback-hold"
+    feat_vec_out  = None
+    feat_ctx_out  = None
 
-    # ── Branch 1 ──────────────────────────────────────────────
-    if is_known and DATA.get("signals") is not None:
+    # ── Branch 1: XGBoost T4 live pipeline ───────────────────
+    xgb_t4      = MODELS.get("xgb_signal_t4")
+    scaler_tech = MODELS.get("task4_scaler")
+    scaler_new  = MODELS.get("xgb_t4_signal_scaler")
+    model_mtl   = MODELS.get("mtl_t4")
+    ticker_enc  = MODELS.get("task4_ticker_encoder")
+
+    if is_known and all(
+        m is not None for m in [xgb_t4, scaler_tech, scaler_new, model_mtl, ticker_enc]
+    ):
+        try:
+            feat_vec_out, sig_date, feat_ctx_out = build_xgb_signal_features(
+                ticker, scaler_tech, scaler_new, model_mtl, ticker_enc
+            )
+            proba  = xgb_t4.predict_proba(feat_vec_out)[0]   # [SELL, HOLD, BUY]
+            p_sell = float(proba[0])
+            p_hold = float(proba[1])
+            p_buy  = float(proba[2])
+            data_source = "live-xgb-t4"
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+        except Exception as e:
+            print(f"  ⚠ XGBoost T4 live pipeline failed for {ticker}: {e}")
+
+    # ── Fallback A: pre-computed signal CSV ───────────────────
+    if data_source == "fallback-hold" and is_known and DATA.get("signals") is not None:
         sig_df     = DATA["signals"]
         ticker_sig = sig_df[sig_df["ticker"] == ticker].sort_values("date")
         if len(ticker_sig) > 0:
-            last     = ticker_sig.iloc[-1]
-            p_buy    = float(last.get("p_buy",  1 / 3))
-            p_sell   = float(last.get("p_sell", 1 / 3))
-            p_hold   = max(0.0, 1 - p_buy - p_sell)
-            sig_date = str(last["date"])[:10]
-        else:
-            is_known = False         # no CSV row → fall through to live
+            last        = ticker_sig.iloc[-1]
+            p_buy       = float(last.get("p_buy",  1 / 3))
+            p_sell      = float(last.get("p_sell", 1 / 3))
+            p_hold      = max(0.0, 1 - p_buy - p_sell)
+            sig_date    = str(last["date"])[:10]
+            data_source = "pre-computed"
 
-    # ── Branch 2 ──────────────────────────────────────────────
-    if not is_known:
-        model  = MODELS.get("mtl_t4")
+    # ── Fallback B: MTL classification head ───────────────────
+    if data_source == "fallback-hold":
         scaler = MODELS.get("task4_scaler")
-        if model is None or scaler is None:
-            raise HTTPException(503, "Model or scaler not available")
+        mtl    = MODELS.get("mtl_t4")
+        if mtl is None or scaler is None:
+            raise HTTPException(503, "No signal model available")
         try:
             X, _, sig_date = build_live_features(ticker, scaler)
-            _, cls_pred = model.predict(X, verbose=0)
+            _, cls_pred = mtl.predict(X, verbose=0)
             p_sell = float(cls_pred[0, 0])
             p_hold = float(cls_pred[0, 1])
             p_buy  = float(cls_pred[0, 2])
-            data_source = "live-yfinance"
+            data_source = "live-mtl-fallback"
         except ValueError as exc:
             raise HTTPException(400, str(exc))
         except Exception:
-            # Live fetch failed — return equal-weight HOLD as safe default
             p_buy = p_sell = p_hold = 1 / 3
             data_source = "fallback-hold"
 
@@ -353,37 +400,106 @@ async def predict_signal(request: SignalRequest):
     if p_buy >= threshold:
         signal = "BUY"
         recommendation = (
-            f"Strong BUY signal. "
-            f"P(BUY)={p_buy:.2%} ≥ threshold={threshold:.2%}. "
-            "Consider entering a long position."
+            f"Tín hiệu MUA (XGBoost T4, horizon 5 ngày). "
+            f"P(MUA)={p_buy:.2%} ≥ ngưỡng={threshold:.2%}. "
+            "XGBoost phát hiện đà tăng qua S/R zone, MA crossover và xác nhận MTL."
         )
     elif p_sell >= threshold:
         signal = "SELL"
         recommendation = (
-            f"Strong SELL signal. "
-            f"P(SELL)={p_sell:.2%} ≥ threshold={threshold:.2%}. "
-            "Consider reducing or exiting position."
+            f"Tín hiệu BÁN (XGBoost T4, horizon 5 ngày). "
+            f"P(BÁN)={p_sell:.2%} ≥ ngưỡng={threshold:.2%}. "
+            "XGBoost phát hiện áp lực bán qua S/R breakdown và tín hiệu EMA."
         )
     else:
         signal = "HOLD"
         recommendation = (
-            f"No high-conviction signal. "
-            f"Max conviction={conviction:.2%} < threshold={threshold:.2%}. "
-            "Stay flat or maintain current position."
+            f"Chưa có tín hiệu rõ ràng (horizon 5 ngày). "
+            f"Conviction cao nhất={conviction:.2%} < ngưỡng={threshold:.2%}. "
+            "Giữ nguyên vị thế, chờ tín hiệu xác nhận thêm."
         )
+
+    feature_context = FeatureContext(**feat_ctx_out) if feat_ctx_out else None
 
     return SignalResponse(
         ticker          = ticker,
         signal_date     = sig_date,
         signal          = signal,
-        p_buy           = round(p_buy,       4),
-        p_sell          = round(p_sell,      4),
-        p_hold          = round(p_hold,      4),
-        conviction      = round(conviction,  4),
+        p_buy           = round(p_buy,      4),
+        p_sell          = round(p_sell,     4),
+        p_hold          = round(p_hold,     4),
+        conviction      = round(conviction, 4),
         threshold_used  = threshold,
         recommendation  = recommendation,
         is_known_ticker = ticker in KNOWN_TICKERS,
         data_source     = data_source,
+        feature_context = feature_context,
+    )
+
+
+@app.post("/predict/signal/explain",
+          response_model=ShapExplainResponse,
+          tags=["Signal"])
+async def explain_signal(request: SignalRequest):
+    """
+    SHAP feature contributions for the XGBoost T4 signal prediction.
+    Uses cached features (call /predict/signal first to warm the cache).
+    Returns top-20 feature contributions ranked by |SHAP value|.
+    """
+    from src.api.feature_pipeline import XGB_T4_FEATURES
+
+    if not _SHAP_AVAILABLE:
+        raise HTTPException(503, "SHAP not available on this server")
+
+    ticker    = request.ticker.upper()
+    explainer = MODELS.get("shap_explainer_t4")
+    xgb_t4   = MODELS.get("xgb_signal_t4")
+    if explainer is None or xgb_t4 is None:
+        raise HTTPException(503, "SHAP explainer not available")
+
+    scaler_tech = MODELS.get("task4_scaler")
+    scaler_new  = MODELS.get("xgb_t4_signal_scaler")
+    model_mtl   = MODELS.get("mtl_t4")
+    ticker_enc  = MODELS.get("task4_ticker_encoder")
+
+    if any(m is None for m in [scaler_tech, scaler_new, model_mtl, ticker_enc]):
+        raise HTTPException(503, "Signal models not fully loaded")
+
+    try:
+        feat_vec, _, _ = build_xgb_signal_features(
+            ticker, scaler_tech, scaler_new, model_mtl, ticker_enc
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    except Exception as e:
+        raise HTTPException(500, f"Feature computation failed: {e}")
+
+    proba  = xgb_t4.predict_proba(feat_vec)[0]
+    pred_class = int(np.argmax(proba))   # 0=SELL 1=HOLD 2=BUY
+    label_map  = {0: "SELL", 1: "HOLD", 2: "BUY"}
+
+    # shap_values: list of arrays [class_0, class_1, class_2], each shape (1, 41)
+    shap_vals  = explainer.shap_values(feat_vec)
+    sv         = shap_vals[pred_class][0]   # shape (41,) for predicted class
+    base_val   = float(explainer.expected_value[pred_class])
+
+    # Rank by absolute contribution, take top 20
+    ranked_idx = np.argsort(np.abs(sv))[::-1][:20]
+    contributions = [
+        ShapContribution(
+            feature    = XGB_T4_FEATURES[i],
+            shap_value = round(float(sv[i]), 6),
+            direction  = "positive" if sv[i] >= 0 else "negative",
+        )
+        for i in ranked_idx
+    ]
+
+    return ShapExplainResponse(
+        ticker          = ticker,
+        signal          = label_map[pred_class],
+        predicted_class = pred_class,
+        contributions   = contributions,
+        base_value      = round(base_val, 6),
     )
 
 

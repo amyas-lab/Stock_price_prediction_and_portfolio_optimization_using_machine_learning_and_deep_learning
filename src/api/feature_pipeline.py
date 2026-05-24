@@ -23,6 +23,7 @@ import pandas as pd
 import ta
 import yfinance as yf
 from cachetools import TTLCache
+from sklearn.cluster import KMeans
 
 warnings.filterwarnings("ignore")
 
@@ -37,17 +38,43 @@ FEATURE_COLS = [
     "vni_atr", "vni_bb_middle", "vni_bb_upper", "vni_bb_lower",
 ]
 
-_FETCH_EXTRA_DAYS = 110
+_FETCH_EXTRA_DAYS     = 110
+_XGB_SIGNAL_EXTRA     = 155   # extra days: 63 SR lookback + 50 EMA warmup + buffer
+
+# ── XGBoost T4 feature column names ──────────────────────────
+SR_FEATURE_COLS = [
+    "sr_distance_pct", "sr_breakout_up", "sr_breakout_down",
+    "sr_near_resistance", "sr_near_support",
+]
+MA_FEATURE_COLS = [
+    "ma_golden_cross_short", "ma_death_cross_short",
+    "ma_golden_cross_long",  "ma_death_cross_long",
+    "ma_short_gap_pct",      "ma_long_gap_pct",
+    "ma_alignment",
+]
+MTL_FEATURE_COLS = ["mtl_p_up_t4", "mtl_p_down_t4", "mtl_conviction_t4"]
+
+# Scaler for SR + MA + MTL (task4_xgb_signal_scaler.pkl was fit on these 15)
+XGB_T4_NEW_COLS  = SR_FEATURE_COLS + MA_FEATURE_COLS + MTL_FEATURE_COLS
+# Full 41-feature order expected by xgb_t4_signal.pkl
+XGB_T4_FEATURES  = FEATURE_COLS + XGB_T4_NEW_COLS + ["ticker_encoded"]
+
+_SR_LOOKBACK   = 63
+_SR_ZONE_WIDTH = 0.005
+_SR_K_RANGE    = range(2, 12)
+
 _VNI_CSV_PATH = (
     Path(__file__).parent.parent.parent
     / "data" / "vietnam" / "vnindex_ohlcv.csv"
 )
 
 # ── In-memory cache: max 128 tickers, 1-hour TTL ─────────────
-_cache    = TTLCache(maxsize=128, ttl=3600)
-_lock     = Lock()
+_cache      = TTLCache(maxsize=128, ttl=3600)
+_lock       = Lock()
+_xgb_cache  = TTLCache(maxsize=128, ttl=3600)
+_xgb_lock   = Lock()
 _vni_df: pd.DataFrame | None = None
-_vni_lock = Lock()
+_vni_lock   = Lock()
 
 
 # ── VNI data: CSV history + vnstock live + yfinance fallback ──
@@ -271,4 +298,225 @@ def build_live_features(
     result = (X_scaled, last_close, last_date)
     with _lock:
         _cache[cache_key] = result
+    return result
+
+
+# ── XGBoost T4 helpers ────────────────────────────────────────
+
+def _find_optimal_k(prices: np.ndarray) -> int:
+    inertias = []
+    for k in _SR_K_RANGE:
+        km = KMeans(n_clusters=k, random_state=42, n_init=10, max_iter=100)
+        km.fit(prices.reshape(-1, 1))
+        inertias.append(km.inertia_)
+    inertias      = np.array(inertias)
+    deltas        = np.diff(inertias)
+    second_deltas = np.diff(deltas)
+    optimal_idx   = int(np.argmax(second_deltas)) + 2
+    return list(_SR_K_RANGE)[optimal_idx]
+
+
+def _compute_sr_features_live(closes: np.ndarray) -> dict:
+    """Compute S/R zone features for the current (last) trading day."""
+    zero = {c: 0.0 for c in SR_FEATURE_COLS}
+    if len(closes) < _SR_LOOKBACK + 1:
+        return zero
+
+    current_price = float(closes[-1])
+    prev_price    = float(closes[-2])
+    window_prices = closes[-_SR_LOOKBACK - 1 : -1]   # 63 prices ending at yesterday
+
+    optimal_k  = _find_optimal_k(window_prices)
+    km = KMeans(n_clusters=optimal_k, random_state=42, n_init=10, max_iter=100)
+    km.fit(window_prices.reshape(-1, 1))
+    zone_centers = np.sort(km.cluster_centers_.flatten())
+    zone_width   = current_price * _SR_ZONE_WIDTH
+
+    distances      = np.abs(zone_centers - current_price)
+    nearest_center = zone_centers[int(np.argmin(distances))]
+    sr_distance    = (current_price - nearest_center) / nearest_center * 100
+
+    sr_break_up = sr_break_down = 0.0
+    for center in zone_centers:
+        zone_low  = center - zone_width
+        zone_high = center + zone_width
+        if prev_price < zone_low and current_price > zone_high:
+            sr_break_up = 1.0
+        elif prev_price > zone_high and current_price < zone_low:
+            sr_break_down = 1.0
+
+    sr_near_res = sr_near_sup = 0.0
+    resistance  = zone_centers[zone_centers > current_price]
+    support     = zone_centers[zone_centers < current_price]
+    if len(resistance) > 0 and abs(current_price - resistance[0]) / current_price < _SR_ZONE_WIDTH:
+        sr_near_res = 1.0
+    if len(support) > 0 and abs(current_price - support[-1]) / current_price < _SR_ZONE_WIDTH:
+        sr_near_sup = 1.0
+
+    return {
+        "sr_distance_pct"   : sr_distance,
+        "sr_breakout_up"    : sr_break_up,
+        "sr_breakout_down"  : sr_break_down,
+        "sr_near_resistance": sr_near_res,
+        "sr_near_support"   : sr_near_sup,
+    }
+
+
+def _compute_ma_features_live(ema10: np.ndarray,
+                               ema20: np.ndarray,
+                               ema50: np.ndarray) -> dict:
+    """Compute MA crossover features for the current (last) trading day."""
+    zero = {c: 0.0 for c in MA_FEATURE_COLS}
+    if len(ema10) < 2:
+        return zero
+
+    e10, e20, e50   = float(ema10[-1]), float(ema20[-1]), float(ema50[-1])
+    pe10, pe20, pe50 = float(ema10[-2]), float(ema20[-2]), float(ema50[-2])
+
+    golden_short = float(pe10 <= pe20 and e10 > e20)
+    death_short  = float(pe10 >= pe20 and e10 < e20)
+    golden_long  = float(pe20 <= pe50 and e20 > e50)
+    death_long   = float(pe20 >= pe50 and e20 < e50)
+    short_gap    = (e10 - e20) / e20 * 100 if e20 != 0 else 0.0
+    long_gap     = (e20 - e50) / e50 * 100 if e50 != 0 else 0.0
+    bull         = e10 > e20 and e20 > e50
+    bear         = e10 < e20 and e20 < e50
+    alignment    = float(bull) - float(bear)
+
+    return {
+        "ma_golden_cross_short": golden_short,
+        "ma_death_cross_short" : death_short,
+        "ma_golden_cross_long" : golden_long,
+        "ma_death_cross_long"  : death_long,
+        "ma_short_gap_pct"     : short_gap,
+        "ma_long_gap_pct"      : long_gap,
+        "ma_alignment"         : alignment,
+    }
+
+
+def build_xgb_signal_features(
+    ticker: str,
+    scaler_tech,     # task4_feature_scaler.pkl  — for the 25 tech features
+    scaler_new,      # task4_xgb_signal_scaler.pkl — for SR + MA + MTL (15 features)
+    model_mtl,       # mtl_t4 keras model
+    ticker_encoder,  # task4_ticker_encoder.pkl
+    n_days: int = 20,
+) -> tuple:
+    """
+    Build the full 41-feature vector for XGBoost T4 signal prediction.
+
+    Feature order (matches xgb_t4_signal.pkl training):
+      [25 tech scaled] + [5 SR scaled] + [7 MA scaled] + [3 MTL scaled] + [1 ticker int]
+
+    Returns
+    -------
+    feat_vec        : np.ndarray, shape (1, 41)
+    last_date       : str  — ISO date of the last trading day used
+    feature_context : dict — raw (unscaled) intermediate values for UI rationale
+    """
+    cache_key = f"xgb_signal:{ticker}"
+    with _xgb_lock:
+        if cache_key in _xgb_cache:
+            return _xgb_cache[cache_key]
+
+    end_dt   = datetime.today()
+    start_dt = end_dt - timedelta(days=n_days + _XGB_SIGNAL_EXTRA)
+    start    = start_dt.strftime("%Y-%m-%d")
+    end      = end_dt.strftime("%Y-%m-%d")
+
+    df_stock = _fetch_ohlcv(f"{ticker}.VN", start, end)
+    df_vni   = _get_vni_ohlcv(start, end)
+
+    stock_feats = _compute_indicators(df_stock)
+    vni_feats   = _compute_indicators(df_vni, prefix="vni_")
+    combined    = stock_feats.join(vni_feats, how="inner").dropna()
+
+    min_rows = _SR_LOOKBACK + n_days + 2   # SR window + sequence + prev-day for crossover
+    if len(combined) < min_rows:
+        raise ValueError(
+            f"Only {len(combined)} valid rows for '{ticker}' "
+            f"(need {min_rows} for XGBoost T4 pipeline)."
+        )
+
+    # ── 25 tech features (scaled) ────────────────────────────
+    X_raw    = combined[FEATURE_COLS].values          # shape (T, 25)
+    X_scaled = scaler_tech.transform(X_raw)           # shape (T, 25)
+
+    # ── MTL T4 features (run on last n_days scaled rows) ────
+    X_seq = X_scaled[-n_days:].reshape(1, n_days, len(FEATURE_COLS))
+    _, cls_pred  = model_mtl.predict(X_seq, verbose=0)
+    mtl_p_up     = float(cls_pred[0, 2])
+    mtl_p_down   = float(cls_pred[0, 0])
+    mtl_conv     = max(mtl_p_up, mtl_p_down)
+
+    # ── SR zone features (raw closes aligned to combined index) ──
+    closes   = df_stock.loc[combined.index, "close"].values
+    sr_feats = _compute_sr_features_live(closes)
+
+    # ── MA crossover features (raw EMA values) ───────────────
+    ma_feats = _compute_ma_features_live(
+        combined["ema_10"].values,
+        combined["ema_20"].values,
+        combined["ema_50"].values,
+    )
+
+    # ── Ticker encoding ──────────────────────────────────────
+    try:
+        ticker_code = float(ticker_encoder.transform([ticker])[0])
+    except Exception:
+        ticker_code = -1.0   # unseen ticker — XGBoost trees degrade gracefully
+
+    # ── Scale SR + MA + MTL together (15 features) ──────────
+    new_raw = np.array([
+        sr_feats["sr_distance_pct"],
+        sr_feats["sr_breakout_up"],
+        sr_feats["sr_breakout_down"],
+        sr_feats["sr_near_resistance"],
+        sr_feats["sr_near_support"],
+        ma_feats["ma_golden_cross_short"],
+        ma_feats["ma_death_cross_short"],
+        ma_feats["ma_golden_cross_long"],
+        ma_feats["ma_death_cross_long"],
+        ma_feats["ma_short_gap_pct"],
+        ma_feats["ma_long_gap_pct"],
+        ma_feats["ma_alignment"],
+        mtl_p_up,
+        mtl_p_down,
+        mtl_conv,
+    ]).reshape(1, -1)
+    new_scaled = scaler_new.transform(new_raw)[0]   # shape (15,)
+
+    # ── Assemble 41-feature vector ───────────────────────────
+    feat_vec  = np.concatenate([X_scaled[-1], new_scaled, [ticker_code]]).reshape(1, -1)
+    last_date = str(combined.index[-1].date())
+
+    # ── Feature context (raw values for UI rationale) ────────
+    last_raw = combined[FEATURE_COLS].iloc[-1]
+    feature_context = {
+        "rsi"              : round(float(last_raw["rsi"]),         2),
+        "macd_hist"        : round(float(last_raw["macd_hist"]),   6),
+        "log_return"       : round(float(last_raw["log_return"]),  6),
+        "ema_10"           : round(float(last_raw["ema_10"]),      2),
+        "ema_20"           : round(float(last_raw["ema_20"]),      2),
+        "ema_50"           : round(float(last_raw["ema_50"]),      2),
+        "ma_alignment"     : ma_feats["ma_alignment"],
+        "ma_short_gap_pct" : round(ma_feats["ma_short_gap_pct"],  4),
+        "ma_long_gap_pct"  : round(ma_feats["ma_long_gap_pct"],   4),
+        "ma_golden_cross_short": ma_feats["ma_golden_cross_short"],
+        "ma_death_cross_short" : ma_feats["ma_death_cross_short"],
+        "ma_golden_cross_long" : ma_feats["ma_golden_cross_long"],
+        "ma_death_cross_long"  : ma_feats["ma_death_cross_long"],
+        "sr_distance_pct"  : round(sr_feats["sr_distance_pct"],   4),
+        "sr_breakout_up"   : sr_feats["sr_breakout_up"],
+        "sr_breakout_down" : sr_feats["sr_breakout_down"],
+        "sr_near_resistance": sr_feats["sr_near_resistance"],
+        "sr_near_support"  : sr_feats["sr_near_support"],
+        "mtl_p_up_t4"      : round(mtl_p_up,   4),
+        "mtl_p_down_t4"    : round(mtl_p_down, 4),
+        "mtl_conviction_t4": round(mtl_conv,   4),
+    }
+
+    result = (feat_vec, last_date, feature_context)
+    with _xgb_lock:
+        _xgb_cache[cache_key] = result
     return result
