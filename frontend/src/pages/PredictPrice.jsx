@@ -570,8 +570,8 @@ function ModelExplainModal({ onClose }) {
               Biểu đồ dưới đây cho thấy mức độ đóng góp của từng nhóm đặc trưng vào quyết định của XGBoost. Các feature từ mạng Học sâu (MTL) và Hình học cản (S/R) thường đứng đầu bảng.
             </div>
             <img
-              src="/notebook/feature_importance_xgb.png"
-              alt="XGBoost Feature Importance"
+              src="/notebook/feature_importance_signal.png"
+              alt="XGBoost T4 Feature Importance"
               style={{ width: '100%', borderRadius: 10, border: '1px solid #EDE5D8' }}
               onError={e => { e.target.style.display = 'none' }}
             />
