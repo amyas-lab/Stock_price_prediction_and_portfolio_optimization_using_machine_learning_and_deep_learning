@@ -36,7 +36,7 @@ const KPI_CARDS = [
     label: 'Lợi nhuận / năm',
     icon: <TrendUpIcon size={13} color="#2E7D32" />,
     explainTitle: 'Lợi nhuận thực nghiệm (Backtest Return)',
-    explain: 'Lợi nhuận đã được kiểm nghiệm thực tế trên dữ liệu ngoài mẫu (24/01/2025 – 20/04/2026). "Thực nghiệm" có nghĩa là mô hình không nhìn thấy dữ liệu này trong quá trình học — kết quả phản ánh hiệu suất thực khi triển khai, không phải ước tính lý thuyết. Quy về năm từ lợi nhuận tích lũy và số ngày kiểm thử.',
+    explain: 'Lợi nhuận đã được kiểm nghiệm thực tế trên dữ liệu ngoài mẫu (24/01/2025 – 20/04/2026). "Thực nghiệm" có nghĩa là mô hình không nhìn thấy dữ liệu này trong quá trình học - kết quả phản ánh hiệu suất thực khi triển khai, không phải ước tính lý thuyết. Quy về năm từ lợi nhuận tích lũy và số ngày kiểm thử.',
   },
   {
     id: 'vol',
@@ -44,13 +44,13 @@ const KPI_CARDS = [
     label: 'Biến động / năm',
     icon: <ShieldIcon size={13} color="#9E7E45" />,
     explainTitle: 'Biến động danh mục (Volatility / Standard Deviation)',
-    explain: 'Độ lệch chuẩn (Standard Deviation) của lợi nhuận hằng ngày, nhân √252 để quy về năm. Đây là thước đo rủi ro phổ biến nhất — danh mục có biến động 25% có nghĩa là trong điều kiện bình thường, lợi nhuận hằng năm có thể dao động ±25% so với mức trung bình.',
+    explain: 'Độ lệch chuẩn (Standard Deviation) của lợi nhuận hằng ngày, nhân √252 để quy về năm. Đây là thước đo rủi ro phổ biến nhất - danh mục có biến động 25% có nghĩa là trong điều kiện bình thường, lợi nhuận hằng năm có thể dao động ±25% so với mức trung bình.',
   },
   {
     id: 'sharpe',
     bg: '#EFF4FF', border: '#A8C0F0', valColor: '#3A5FA0',
     label: 'Sharpe Ratio',
-    explainTitle: 'Sharpe Ratio — hiệu quả điều chỉnh rủi ro',
+    explainTitle: 'Sharpe Ratio - hiệu quả điều chỉnh rủi ro',
     explain: 'Sharpe = (Lợi nhuận năm − Risk-Free Rate) / Biến động năm. Risk-Free Rate = 4.5%/năm (lãi suất phi rủi ro, tương đương trái phiếu Chính phủ VN). Sharpe > 1.0 là tốt, > 1.5 là xuất sắc. Ý nghĩa: mỗi đơn vị rủi ro chấp nhận mang lại bao nhiêu đơn vị lợi nhuận vượt trội so với gửi ngân hàng.',
   },
 ]
@@ -80,47 +80,47 @@ const BACKTEST_META = [
   {
     label: 'Max Drawdown',
     ew: '-19.87%', rt: '-23.20%', pr: '-21.97%', vni: 'N/A *',
-    tip: 'Mức sụt giảm lớn nhất từ đỉnh xuống đáy trong toàn bộ giai đoạn. (*) VN-Index là chuẩn tham chiếu thụ động — không có tín hiệu giao dịch nên không tính Max Drawdown.',
+    tip: 'Mức sụt giảm lớn nhất từ đỉnh xuống đáy trong toàn bộ giai đoạn. (*) VN-Index là chuẩn tham chiếu thụ động - không có tín hiệu giao dịch nên không tính Max Drawdown.',
   },
   {
     label: 'Win Rate',
     ew: '59.27%', rt: '55.63%', pr: '53.97%', vni: 'N/A *',
-    tip: 'Tỷ lệ số phiên giao dịch có lợi nhuận dương. (*) VN-Index là chuẩn tham chiếu thụ động — không có tín hiệu giao dịch nên không tính Win Rate.',
+    tip: 'Tỷ lệ số phiên giao dịch có lợi nhuận dương. (*) VN-Index là chuẩn tham chiếu thụ động - không có tín hiệu giao dịch nên không tính Win Rate.',
   },
 ]
 
 // ── profile modal content ─────────────────────────────────────
 const PROFILE_DETAIL = {
   prudent: {
-    title: 'Thận Trọng — Markowitz Tối Thiểu Rủi Ro',
+    title: 'Thận Trọng - Markowitz Tối Thiểu Rủi Ro',
     subtitle: 'Mục tiêu: Giảm thiểu biến động danh mục trong khi vẫn đảm bảo lợi nhuận tối thiểu',
     badge: 'Rủi ro thấp', badgeColor: '#1565C0',
     sections: [
       { title: 'Bài toán tối ưu hóa', body: 'Sử dụng thuật toán SLSQP (Sequential Least Squares Programming) từ thư viện scipy.optimize để giải bài toán tối thiểu hóa: tìm tỷ trọng w sao cho phương sai danh mục w^T Σ w nhỏ nhất, với ràng buộc: (1) tổng tỷ trọng = 1, (2) không được bán khống (w_i ≥ 0), (3) lợi nhuận kỳ vọng w^T μ đạt ít nhất một ngưỡng tối thiểu.' },
-      { title: 'Dữ liệu đầu vào', body: 'Ma trận hiệp phương sai Σ và vector lợi nhuận kỳ vọng μ được ước lượng từ lợi nhuận hằng ngày giai đoạn 2020–2024, sau đó nhân 252 để quy về năm trước khi đưa vào SLSQP (pre-annualization — đảm bảo gradient tốt hơn).' },
-      { title: 'Đặc điểm danh mục', body: 'Danh mục thiên về các cổ phiếu phòng thủ có biến động lịch sử thấp (ngân hàng lớn, tiêu dùng thiết yếu). Phân bổ không đều — cổ phiếu ổn định nhận tỷ trọng cao hơn.' },
+      { title: 'Dữ liệu đầu vào', body: 'Ma trận hiệp phương sai Σ và vector lợi nhuận kỳ vọng μ được ước lượng từ lợi nhuận hằng ngày giai đoạn 2020–2024, sau đó nhân 252 để quy về năm trước khi đưa vào SLSQP (pre-annualization - đảm bảo gradient tốt hơn).' },
+      { title: 'Đặc điểm danh mục', body: 'Danh mục thiên về các cổ phiếu phòng thủ có biến động lịch sử thấp (ngân hàng lớn, tiêu dùng thiết yếu). Phân bổ không đều - cổ phiếu ổn định nhận tỷ trọng cao hơn.' },
       { title: 'Kết quả kiểm thử 2025–2026', body: 'Lợi nhuận thực nghiệm: 16.44% · Biến động: 24.80%/năm · Sharpe: 0.455 · Max Drawdown: -21.97% · Win Rate: 53.97%' },
     ],
   },
   equal_weight: {
-    title: 'Cân Bằng — Phân Bổ Đều (Equal-Weight)',
+    title: 'Cân Bằng - Phân Bổ Đều (Equal-Weight)',
     subtitle: 'Mục tiêu: Loại bỏ sai số ước lượng bằng cách phân bổ đều cho tất cả cổ phiếu được chọn',
     badge: 'Hiệu quả nhất', badgeColor: '#2E7D32',
     sections: [
-      { title: 'Cơ chế đơn giản nhưng mạnh mẽ', body: 'Không có bài toán tối ưu hóa — mỗi cổ phiếu trong Top 10 do mô hình XGBoost T4 chọn lọc nhận đúng 10% danh mục. Không ưu tiên cổ phiếu nào hơn cổ phiếu nào dựa trên dữ liệu lịch sử.' },
+      { title: 'Cơ chế đơn giản nhưng mạnh mẽ', body: 'Không có bài toán tối ưu hóa - mỗi cổ phiếu trong Top 10 do mô hình XGBoost T4 chọn lọc nhận đúng 10% danh mục. Không ưu tiên cổ phiếu nào hơn cổ phiếu nào dựa trên dữ liệu lịch sử.' },
       { title: 'Tại sao thắng Markowitz?', body: 'DeMiguel, Garlappi & Uppal (2009) kiểm chứng trên 14 bộ dữ liệu thực tế: phân bổ đều 1/N thường thắng MVO out-of-sample vì tránh được sai số tích lũy trong ước lượng ma trận hiệp phương sai Σ. Lỗi ước lượng Σ thường lớn hơn lợi ích của việc tối ưu hóa.' },
       { title: 'Vai trò của mô hình chọn cổ phiếu', body: 'Lợi thế thực sự đến từ bước chọn lọc: mô hình XGBoost T4 (Cascade: GRU → K-Means → XGBoost) xác định Top 10 cổ phiếu có tín hiệu tích cực nhất. Equal-Weight chỉ áp dụng sau khi đã có danh sách chất lượng cao.' },
       { title: 'Kết quả kiểm thử 2025–2026', body: 'Lợi nhuận thực nghiệm: 65.90% · Biến động: 25.30%/năm · Sharpe: 1.6201 · Max Drawdown: -19.87% · Win Rate: 59.27%' },
     ],
   },
   risk_taking: {
-    title: 'Tích Cực — Markowitz Tối Đa Sharpe',
+    title: 'Tích Cực - Markowitz Tối Đa Sharpe',
     subtitle: 'Mục tiêu: Tối đa hóa tỷ lệ lợi nhuận / rủi ro (Sharpe Ratio)',
     badge: 'Rủi ro cao', badgeColor: '#C0392B',
     sections: [
       { title: 'Bài toán tối ưu hóa', body: 'Sử dụng SLSQP để tối đa hóa Sharpe Ratio: tìm tỷ trọng w sao cho (w^T μ − RF) / √(w^T Σ w) lớn nhất, với ràng buộc: (1) tổng tỷ trọng = 1, (2) không được bán khống (w_i ≥ 0).' },
       { title: 'Dữ liệu đầu vào', body: 'Giống chiến lược Thận Trọng: Σ và μ ước lượng từ dữ liệu 2020–2024 và pre-annualize trước khi đưa vào SLSQP. Risk-Free Rate RF = 4.5%/năm.' },
-      { title: 'Đặc điểm danh mục', body: 'Phân bổ tập trung vào các cổ phiếu có Sharpe cao trong giai đoạn huấn luyện. Dễ bị ảnh hưởng bởi outlier trong dữ liệu lịch sử — ví dụ: VIC có biến động cao trong 2020–2024 nên chỉ nhận 2% dù tăng +678% trong giai đoạn kiểm thử.' },
+      { title: 'Đặc điểm danh mục', body: 'Phân bổ tập trung vào các cổ phiếu có Sharpe cao trong giai đoạn huấn luyện. Dễ bị ảnh hưởng bởi outlier trong dữ liệu lịch sử - ví dụ: VIC có biến động cao trong 2020–2024 nên chỉ nhận 2% dù tăng +678% trong giai đoạn kiểm thử.' },
       { title: 'Kết quả kiểm thử 2025–2026', body: 'Lợi nhuận thực nghiệm: 35.73% · Biến động: 29.52%/năm · Sharpe: 0.8596 · Max Drawdown: -23.20% · Win Rate: 55.63%' },
     ],
   },
@@ -129,31 +129,31 @@ const PROFILE_DETAIL = {
 const SCORE_MODALS = {
   profit: {
     title: 'Điểm lợi nhuận (Profitability Score)',
-    subtitle: 'Thang điểm 0–100 — thứ hạng phần trăm tổng hợp 5 yếu tố',
+    subtitle: 'Thang điểm 0–100 - thứ hạng phần trăm tổng hợp 5 yếu tố',
     sections: [
-      { title: 'F1 — Tín hiệu mô hình MTL (Multi-Task Learning)', body: 'Xác suất tăng giá p_up từ mô hình deep learning GRU Encoder-Decoder, được huấn luyện đồng thời dự báo lợi nhuận 5 ngày và phân loại xu hướng.' },
-      { title: 'F2 — Chỉ số kỹ thuật tổng hợp', body: 'Kết hợp RSI, MACD histogram, khoảng cách vùng hỗ trợ/kháng cự K-Means, và tín hiệu EMA crossover. Đánh giá động lực giá ngắn và trung hạn.' },
-      { title: 'F3 — Tín hiệu XGBoost', body: 'Xác suất BUY từ mô hình XGBoost T4 huấn luyện trên 25 đặc trưng kỹ thuật kết hợp. Là lớp ra quyết định cuối cùng của Cascade Model.' },
-      { title: 'F4 — Sharpe lịch sử', body: 'Sharpe Ratio của cổ phiếu trong giai đoạn huấn luyện (2020–2024), điều chỉnh theo Risk-Free Rate 4.5%/năm. Phản ánh lịch sử lợi nhuận / rủi ro.' },
-      { title: 'F5 — Xu hướng giá (Trend Score)', body: 'Đánh giá xu hướng dựa trên chuỗi EMA 10/20/50 phiên. MA alignment = +1 nếu EMA10 > EMA20 > EMA50 (xu hướng tăng toàn diện), −1 nếu ngược lại.' },
+      { title: 'F1 - Tín hiệu mô hình MTL (Multi-Task Learning)', body: 'Xác suất tăng giá p_up từ mô hình deep learning GRU Encoder-Decoder, được huấn luyện đồng thời dự báo lợi nhuận 5 ngày và phân loại xu hướng.' },
+      { title: 'F2 - Chỉ số kỹ thuật tổng hợp', body: 'Kết hợp RSI, MACD histogram, khoảng cách vùng hỗ trợ/kháng cự K-Means, và tín hiệu EMA crossover. Đánh giá động lực giá ngắn và trung hạn.' },
+      { title: 'F3 - Tín hiệu XGBoost', body: 'Xác suất BUY từ mô hình XGBoost T4 huấn luyện trên 25 đặc trưng kỹ thuật kết hợp. Là lớp ra quyết định cuối cùng của Cascade Model.' },
+      { title: 'F4 - Sharpe lịch sử', body: 'Sharpe Ratio của cổ phiếu trong giai đoạn huấn luyện (2020–2024), điều chỉnh theo Risk-Free Rate 4.5%/năm. Phản ánh lịch sử lợi nhuận / rủi ro.' },
+      { title: 'F5 - Xu hướng giá (Trend Score)', body: 'Đánh giá xu hướng dựa trên chuỗi EMA 10/20/50 phiên. MA alignment = +1 nếu EMA10 > EMA20 > EMA50 (xu hướng tăng toàn diện), −1 nếu ngược lại.' },
     ],
   },
   risk: {
     title: 'Điểm rủi ro (Risk Score)',
-    subtitle: 'Thang điểm 0–10 — điểm tổng hợp 5 yếu tố rủi ro (cao = rủi ro lớn)',
+    subtitle: 'Thang điểm 0–10 - điểm tổng hợp 5 yếu tố rủi ro (cao = rủi ro lớn)',
     sections: [
-      { title: 'R1 — Biến động giá (Volatility Risk)', body: 'Độ lệch chuẩn lợi nhuận hằng ngày trong 60 phiên gần nhất, quy về năm. Biến động cao = rủi ro dao động giá lớn.' },
-      { title: 'R2 — Áp lực bán (Sell Pressure Risk)', body: 'Xác suất SELL từ mô hình XGBoost T4 kết hợp với chiều MACD histogram. Đánh giá nguy cơ bán tháo ngắn hạn.' },
-      { title: 'R3 — Mức sụt giảm lịch sử (Drawdown Risk)', body: 'Max Drawdown trong 252 phiên gần nhất (1 năm giao dịch). Phản ánh mức thua lỗ tệ nhất mà cổ phiếu đã trải qua.' },
-      { title: 'R4 — Tương quan danh mục (Correlation Risk)', body: 'Hệ số tương quan trung bình với các cổ phiếu còn lại trong danh mục. Tương quan cao = ít tác dụng phân tán rủi ro.' },
-      { title: 'R5 — Nguy cơ đảo chiều (Reversal Risk)', body: 'Kết hợp RSI (overbought/oversold) và khoảng cách đến vùng kháng cự K-Means. RSI > 70 gần kháng cự = rủi ro đảo chiều giảm cao.' },
+      { title: 'R1 - Biến động giá (Volatility Risk)', body: 'Độ lệch chuẩn lợi nhuận hằng ngày trong 60 phiên gần nhất, quy về năm. Biến động cao = rủi ro dao động giá lớn.' },
+      { title: 'R2 - Áp lực bán (Sell Pressure Risk)', body: 'Xác suất SELL từ mô hình XGBoost T4 kết hợp với chiều MACD histogram. Đánh giá nguy cơ bán tháo ngắn hạn.' },
+      { title: 'R3 - Mức sụt giảm lịch sử (Drawdown Risk)', body: 'Max Drawdown trong 252 phiên gần nhất (1 năm giao dịch). Phản ánh mức thua lỗ tệ nhất mà cổ phiếu đã trải qua.' },
+      { title: 'R4 - Tương quan danh mục (Correlation Risk)', body: 'Hệ số tương quan trung bình với các cổ phiếu còn lại trong danh mục. Tương quan cao = ít tác dụng phân tán rủi ro.' },
+      { title: 'R5 - Nguy cơ đảo chiều (Reversal Risk)', body: 'Kết hợp RSI (overbought/oversold) và khoảng cách đến vùng kháng cự K-Means. RSI > 70 gần kháng cự = rủi ro đảo chiều giảm cao.' },
     ],
   },
 }
 
 // ── helpers ───────────────────────────────────────────────────
 function fmtPct(v, digits = 2) {
-  return v === null || v === undefined ? '—' : (v * 100).toFixed(digits) + '%'
+  return v === null || v === undefined ? '-' : (v * 100).toFixed(digits) + '%'
 }
 
 // ── Modal ─────────────────────────────────────────────────────
@@ -399,9 +399,9 @@ export default function Portfolio() {
     : 'Lợi nhuận thực nghiệm kiểm thử'
 
   const kpiCards = [
-    { ...KPI_CARDS[0], value: data ? fmtPct(dispRet) : '—', sub: retNote },
-    { ...KPI_CARDS[1], value: data ? fmtPct(dispVol) : '—', sub: 'Độ lệch chuẩn (Standard Deviation)' },
-    { ...KPI_CARDS[2], value: data ? dispSharpe.toFixed(4) : '—', sub: 'Risk-Free Rate = 4.5%/năm' },
+    { ...KPI_CARDS[0], value: data ? fmtPct(dispRet) : '-', sub: retNote },
+    { ...KPI_CARDS[1], value: data ? fmtPct(dispVol) : '-', sub: 'Độ lệch chuẩn (Standard Deviation)' },
+    { ...KPI_CARDS[2], value: data ? dispSharpe.toFixed(4) : '-', sub: 'Risk-Free Rate = 4.5%/năm' },
   ]
 
   const pieData = data?.stocks?.map(s => ({ name: s.ticker, value: s.weight })) ?? []
@@ -467,7 +467,7 @@ export default function Portfolio() {
 
       {/* ── Backtest leaderboard ── */}
       <div className="card" style={{ marginBottom: 16 }}>
-        <div className="card-title">Kết quả Kiểm Thử Thực Nghiệm — Walk-Forward Backtest</div>
+        <div className="card-title">Kết quả Kiểm Thử Thực Nghiệm - Walk-Forward Backtest</div>
         <div className="card-sub" style={{ marginBottom: 4 }}>
           Huấn luyện trên dữ liệu lịch sử <strong>2020–2024</strong> · Kiểm thử trên dữ liệu ngoài mẫu <strong>24/01/2025 – 20/04/2026</strong>.
           Quy tắc: không nhìn trước tương lai (look-ahead bias = 0), cửa sổ trượt 20 phiên, ngưỡng tin cậy ≥ 55%.
@@ -492,7 +492,7 @@ export default function Portfolio() {
           </table>
         </div>
         <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)' }}>
-          (*) VN-Index là chuẩn tham chiếu thụ động — không có tín hiệu giao dịch nên không tính Max Drawdown và Win Rate.
+          (*) VN-Index là chuẩn tham chiếu thụ động - không có tín hiệu giao dịch nên không tính Max Drawdown và Win Rate.
         </div>
       </div>
 
@@ -636,7 +636,7 @@ export default function Portfolio() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                           <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>LN</span>
                           <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--green)' }}>
-                            {prof ? (prof.composite_score * 100).toFixed(0) + '/100' : '—'}
+                            {prof ? (prof.composite_score * 100).toFixed(0) + '/100' : '-'}
                           </span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -733,11 +733,11 @@ export default function Portfolio() {
 
               <div className="card">
                 <div className="card-title" style={{ marginBottom: 10 }}>Phương pháp học thuật</div>
-                <AccSection id="walkforward" title="Walk-Forward Backtest — Cơ chế kiểm thử" open={!!accOpen.walkforward} onToggle={toggleAcc}>
+                <AccSection id="walkforward" title="Walk-Forward Backtest - Cơ chế kiểm thử" open={!!accOpen.walkforward} onToggle={toggleAcc}>
                   <p>Walk-forward backtest mô phỏng giao dịch thực tế theo thời gian tuyến tính: tại mỗi phiên <em>t</em>, mô hình chỉ được phép sử dụng dữ liệu tính đến phiên <em>t</em> để phát tín hiệu, sau đó đánh giá kết quả tại phiên <em>t+1</em>. Không có look-ahead bias.</p>
                   <p style={{ marginTop: 8 }}>Thiết lập: cửa sổ nhìn lại = 20 phiên · Conviction ≥ 0.55 · Giai đoạn kiểm thử: 24/01/2025 – 20/04/2026 · Dữ liệu kiểm thử tách biệt hoàn toàn với dữ liệu huấn luyện (2020–2024).</p>
                 </AccSection>
-                <AccSection id="sharpe" title="Sharpe Ratio — Đo lường hiệu quả điều chỉnh rủi ro" open={!!accOpen.sharpe} onToggle={toggleAcc}>
+                <AccSection id="sharpe" title="Sharpe Ratio - Đo lường hiệu quả điều chỉnh rủi ro" open={!!accOpen.sharpe} onToggle={toggleAcc}>
                   <p>Công thức (đầu vào đã được quy về năm):</p>
                   <div style={{
                     background: '#F5EFE6', borderRadius: 6, padding: '8px 12px', margin: '8px 0',
@@ -746,12 +746,12 @@ export default function Portfolio() {
                     Sharpe = (μ<sub>năm</sub> − RF<sub>năm</sub>) / σ<sub>năm</sub>
                   </div>
                   <p>μ<sub>năm</sub> = lợi nhuận ngày × 252, σ<sub>năm</sub> = độ lệch chuẩn ngày × √252, RF<sub>năm</sub> = 4.5%/năm. Do μ và σ đã được quy về năm trước khi tính, công thức không cần thêm hệ số √252.</p>
-                  <p style={{ marginTop: 8 }}>Equal-Weight Top 10 đạt Sharpe <strong>1.6201</strong> — vượt VN-Index (1.1694) và cả hai chiến lược Markowitz MVO.</p>
+                  <p style={{ marginTop: 8 }}>Equal-Weight Top 10 đạt Sharpe <strong>1.6201</strong> - vượt VN-Index (1.1694) và cả hai chiến lược Markowitz MVO.</p>
                 </AccSection>
                 <AccSection id="mvo" title="Tại sao Equal-Weight thắng Markowitz MVO?" open={!!accOpen.mvo} onToggle={toggleAcc}>
-                  <p><strong>Lý thuyết (DeMiguel et al., 2009):</strong> Sai số ước lượng ma trận hiệp phương sai tích lũy và thường làm cho 1/N Equal-Weight thắng out-of-sample — kiểm chứng trên 14 bộ dữ liệu thực tế.</p>
-                  <p style={{ marginTop: 8 }}><strong>Yếu tố cụ thể — VIC outlier:</strong> VIC tăng +678% trong giai đoạn kiểm thử. Equal-Weight phân bổ 10% cho VIC; MVO chỉ phân bổ 2% do biến động lịch sử cao. Một cổ phiếu này đóng góp phần lớn chênh lệch.</p>
-                  <p style={{ marginTop: 8 }}><em>"No investment strategy can be expected to consistently outperform the 1/N naive diversification rule."</em> — DeMiguel, Garlappi &amp; Uppal (2009).</p>
+                  <p><strong>Lý thuyết (DeMiguel et al., 2009):</strong> Sai số ước lượng ma trận hiệp phương sai tích lũy và thường làm cho 1/N Equal-Weight thắng out-of-sample - kiểm chứng trên 14 bộ dữ liệu thực tế.</p>
+                  <p style={{ marginTop: 8 }}><strong>Yếu tố cụ thể - VIC outlier:</strong> VIC tăng +678% trong giai đoạn kiểm thử. Equal-Weight phân bổ 10% cho VIC; MVO chỉ phân bổ 2% do biến động lịch sử cao. Một cổ phiếu này đóng góp phần lớn chênh lệch.</p>
+                  <p style={{ marginTop: 8 }}><em>"No investment strategy can be expected to consistently outperform the 1/N naive diversification rule."</em> - DeMiguel, Garlappi &amp; Uppal (2009).</p>
                 </AccSection>
               </div>
             </>
